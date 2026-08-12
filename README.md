@@ -10,11 +10,10 @@
 - 状态页：显示运行中的 PID、CPU 架构、监控脚本状态。
 - 加速设备页：只展示 UU 官方 `/tmp/uu/activate_status` 确认的设备，不把普通 ARP 邻居误报为加速设备。
 - 延迟检测：对 UU 已确认的设备 IP 执行 ping，并显示最近一次延迟。
-- OpenClash/DNS 兼容诊断：显示 DNS 模式、劫持状态、53 端口监听程序、UU 域名解析结果及 Fake-IP 风险，并给出直连规则。
 - 自动识别 `x86_64`、`aarch64`、ARM、MIPS 等架构，并从官方接口下载匹配文件。
 - 下载后按官方接口返回的 MD5 校验完整性。
-- 使用 `procd` 管理监控进程，支持异常退出后自动拉起。
-- 自动停用旧的 `uugamebooster`/`S99uuplugin` 启动方式，避免两套 UU 同时修改 nftables。
+- 保留网易官方 `S99uuplugin` 启动和守护方式，LuCI 只负责管理及展示，不替换官方进程生命周期。
+- 自动停用旧的 `uugamebooster` 软件包启动方式，避免两套 UU 同时修改 nftables。
 - 不把网易闭源二进制重新打包进仓库或 IPK/APK。
 
 ## 一键安装
@@ -52,17 +51,15 @@ chmod +x /tmp/uu-official-installer.run
 2. 在“状态”页查看服务是否已启用、是否运行、PID、架构和监控脚本状态。
 3. “加速设备”只在 UU 官方写入激活状态后显示；没有设备时页面会明确显示“暂无 UU 已确认的加速设备”。
 4. 延迟是路由器对设备 IP 的 ICMP 测量值，不代表 UU 服务器或游戏延迟。
-5. OpenClash/DNS 区域只读取并诊断配置，不会自动改写 OpenClash；检测到 Fake-IP 或 DNS 劫持风险时，请复制页面中的直连规则，并将相同域名加入 Fake-IP 排除列表。
 
 ## 命令行排障
 
 ```sh
-/etc/init.d/uu-official status
-/etc/init.d/uu-official start
-/etc/init.d/uu-official stop
-/etc/init.d/uu-official restart
 /usr/libexec/uu-official/manager.sh status
 /usr/libexec/uu-official/manager.sh devices
+/usr/libexec/uu-official/manager.sh start
+/usr/libexec/uu-official/manager.sh stop
+/usr/libexec/uu-official/manager.sh restart
 /usr/libexec/uu-official/manager.sh update-monitor
 ```
 
@@ -76,7 +73,7 @@ rm -f /tmp/luci-indexcache.*.json /tmp/luci-modulecache/*
 /etc/init.d/uhttpd reload
 ```
 
-如果此前使用过网易原始脚本创建的 `/etc/rc.d/S99uuplugin`，安装器会自动移除该启动链接；不要在 `procd` 进程仍运行时手工删除监控脚本。
+安装器会保留并重建网易官方 `/etc/rc.d/S99uuplugin` 启动链接。不要在监控进程仍运行时手工删除监控脚本。
 
 ## 从源码编译
 

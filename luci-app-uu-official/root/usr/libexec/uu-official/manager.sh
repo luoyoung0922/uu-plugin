@@ -206,7 +206,7 @@ status_text() {
 	local pid model='unknown' monitor='missing' enabled='0'
 	[ -r "$MONITOR_CONFIG" ] && model="$(sed -n 's/^model=//p' "$MONITOR_CONFIG" | head -n1)"
 	[ -x "$MONITOR" ] && monitor='installed'
-	enabled="$(uci -q get uu-official.main.enabled 2>/dev/null || echo 0)"
+	[ -L /etc/rc.d/S99uuplugin ] && enabled='1'
 	pid="$(runtime_pid 2>/dev/null || true)"
 	if [ -n "$pid" ]; then
 		printf 'running\nenabled=%s\npid=%s\nmodel=%s\nmonitor=%s\n' "$enabled" "$pid" "$model" "$monitor"
@@ -261,27 +261,18 @@ EOF
 	[ -n "$reason" ] && printf 'reason=%s\n' "$reason"
 }
 
-dns_status() {
-	local installed='0' running='0' mode='unknown' hijack='unknown' listeners='' resolved='' fakeip='0'
-	if [ -x /etc/init.d/openclash ] || [ -f /etc/config/openclash ]; then installed='1'; fi
-	if [ -x /etc/init.d/openclash ] && /etc/init.d/openclash status 2>/dev/null | grep -qi 'running'; then
-		running='1'
-	elif pidof clash >/dev/null 2>&1 || pidof mihomo >/dev/null 2>&1; then
-		running='1'
-	fi
-	if [ -f /etc/config/openclash ]; then
-		mode="$(uci -q get openclash.config.enhanced_mode 2>/dev/null || uci -q get openclash.config.dns_mode 2>/dev/null || echo unknown)"
-		hijack="$(uci -q get openclash.config.enable_redirect_dns 2>/dev/null || uci -q get openclash.config.dns_redirect 2>/dev/null || echo unknown)"
-	fi
-	if command -v ss >/dev/null 2>&1; then
-		listeners="$(ss -lnup 2>/dev/null | awk '$5 ~ /:53$/ {print $0}' | grep -Eo 'dnsmasq|smartdns|mosdns|clash|mihomo' | sort -u | tr '\n' ',' | sed 's/,$//')"
-	elif command -v netstat >/dev/null 2>&1; then
-		listeners="$(netstat -lnup 2>/dev/null | awk '$4 ~ /:53$/ {print $0}' | grep -Eo 'dnsmasq|smartdns|mosdns|clash|mihomo' | sort -u | tr '\n' ',' | sed 's/,$//')"
-	fi
-	resolved="$(nslookup router.uu.163.com 127.0.0.1 2>/dev/null | awk '/^Address [0-9]*: / {print $3} /^Address: / {print $2}' | tail -n1)"
-	case "$resolved" in 198.18.*|198.19.*) fakeip='1' ;; esac
-	printf 'openclash_installed=%s\nopenclash_running=%s\ndns_mode=%s\ndns_hijack=%s\ndns_listeners=%s\nuu_resolved=%s\nuu_fake_ip=%s\n' \
-		"$installed" "$running" "$mode" "$hijack" "${listeners:-unknown}" "${resolved:-unknown}" "$fakeip"
+official_start() {
+	[ -x "$MONITOR" ] || die "official monitor is not installed"
+	other_monitor_running >/dev/null 2>&1 && return 0
+	/bin/sh "$MONITOR" >/dev/null 2>&1 &
+	log "official monitor started"
+}
+
+official_stop() {
+	local pid
+	stop_runtime
+	for pid in $(ps w 2>/dev/null | awk '/[u]uplugin_monitor\.sh/ {print $1}'); do kill "$pid" 2>/dev/null || true; done
+	log "official monitor stopped"
 }
 
 case "${1:-}" in
@@ -291,10 +282,12 @@ case "${1:-}" in
 	clean-runtime) clean_runtime ;;
 	status) status_text ;;
 	devices) device_status ;;
-	dns-status) dns_status ;;
+	start) official_start ;;
+	stop) official_stop ;;
+	restart) official_stop; sleep 1; official_start ;;
 	detect-model) detect_model ;;
 	*)
-		echo "Usage: $0 {prepare [model]|update-monitor|stop-runtime|clean-runtime|status|devices|dns-status|detect-model}" >&2
+		echo "Usage: $0 {prepare [model]|update-monitor|stop-runtime|clean-runtime|status|devices|start|stop|restart|detect-model}" >&2
 		exit 2
 		;;
 esac

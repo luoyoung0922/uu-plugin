@@ -44,12 +44,12 @@ install_payload() {
   cp "$src" "$dst" || die "cannot install $dst"
   chmod "$mode" "$dst" || die "cannot chmod $dst"
 }
-stop_legacy() {
-  if [ -x /etc/init.d/uugamebooster ]; then /etc/init.d/uugamebooster disable >/dev/null 2>&1 || true; /etc/init.d/uugamebooster stop >/dev/null 2>&1 || true; fi
-  for pid in $(ps w 2>/dev/null | awk '/[u]uplugin_monitor\.sh/ { print $1 }'); do
-    [ -r "/proc/$pid/cmdline" ] && kill "$pid" 2>/dev/null || true
-  done
-  rm -f /etc/rc.d/S99uuplugin
+stop_previous_manager() {
+	if [ -x /etc/init.d/uu-official ]; then /etc/init.d/uu-official disable >/dev/null 2>&1 || true; /etc/init.d/uu-official stop >/dev/null 2>&1 || true; fi
+	if [ -x /etc/init.d/uugamebooster ]; then /etc/init.d/uugamebooster disable >/dev/null 2>&1 || true; /etc/init.d/uugamebooster stop >/dev/null 2>&1 || true; fi
+	for pid in $(ps w 2>/dev/null | awk '/[u]uplugin_monitor\.sh/ { print $1 }'); do
+		[ -r "/proc/$pid/cmdline" ] && kill "$pid" 2>/dev/null || true
+	done
 }
 install_deps() {
   command -v opkg >/dev/null 2>&1 || die "opkg is required"
@@ -68,7 +68,7 @@ uninstall() {
 }
 [ "$UNINSTALL" -eq 1 ] && { uninstall; exit 0; }
 install_deps
-stop_legacy
+stop_previous_manager
 stamp="$(date +%Y%m%d-%H%M%S)"; backup="/root/uu-official-backup-$stamp"; mkdir -p "$backup"
 for old in /etc/config/uu-official /etc/init.d/uu-official /usr/libexec/uu-official; do [ -e "$old" ] && cp -a "$old" "$backup/" 2>/dev/null || true; done
 log "backup: $backup"
@@ -87,16 +87,22 @@ $footer = @'
 uci -q set uu-official.main.enabled='1' || die "cannot write UCI config"
 uci -q set uu-official.main.model='auto' || die "cannot write UCI config"
 uci -q commit uu-official || die "cannot commit UCI config"
-/etc/init.d/uu-official enable || die "cannot enable service"
+cat > /usr/sbin/uu/S99uuplugin <<'UU_BOOT_EOF'
+#!/bin/sh /etc/rc.common
+START=99
+start() { /bin/sh /usr/sbin/uu/uuplugin_monitor.sh >/dev/null 2>&1 & }
+UU_BOOT_EOF
+chmod 0755 /usr/sbin/uu/S99uuplugin
+ln -sf /usr/sbin/uu/S99uuplugin /etc/rc.d/S99uuplugin
 if [ "$NO_START" -eq 0 ]; then
-  /etc/init.d/uu-official restart || die "cannot start service"
+	/usr/libexec/uu-official/manager.sh start || die "cannot start service"
   log "service started; use LuCI Services -> NetEase UU"
 else
-  log "installed without starting; run /etc/init.d/uu-official start"
+	log "installed without starting; run /usr/libexec/uu-official/manager.sh start"
 fi
 log "installation complete"
 exit 0
 '@
 
-[IO.File]::WriteAllText($OutputPath, $header + $body + $footer, (New-Object Text.UTF8Encoding($false)))
+[IO.File]::WriteAllText($OutputPath, $header + "`n" + $body + $footer, (New-Object Text.UTF8Encoding($false)))
 Write-Output "Wrote $OutputPath"

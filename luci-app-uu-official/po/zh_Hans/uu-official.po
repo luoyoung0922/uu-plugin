@@ -145,35 +145,5 @@ msgstr "已请求重新安装运行时。"
 msgid "This stops UU, removes its downloaded runtime cache, and starts the service again. It does not change LuCI settings."
 msgstr "此操作会停止 UU、删除已下载的运行时缓存并重新启动服务，但不会更改 LuCI 设置。"
 
-msgid "OpenClash / DNS compatibility"
-msgstr "OpenClash / DNS 兼容性"
-
-msgid "A possible DNS conflict was detected. Add the rules below to OpenClash and exclude UU domains from Fake-IP."
-msgstr "检测到可能的 DNS 冲突。请将下列规则加入 OpenClash，并将 UU 域名加入 Fake-IP 排除列表。"
-
-msgid "No obvious UU DNS conflict was detected."
-msgstr "未检测到明显的 UU DNS 冲突。"
-
-msgid "OpenClash running: %s"
-msgstr "OpenClash 运行：%s"
-
-msgid "DNS mode: %s"
-msgstr "DNS 模式：%s"
-
-msgid "DNS hijack: %s"
-msgstr "DNS 劫持：%s"
-
-msgid "Port 53 listeners: %s"
-msgstr "53 端口监听程序：%s"
-
-msgid "UU DNS result: %s"
-msgstr "UU DNS 解析结果：%s"
-
-msgid "Recommended OpenClash custom direct rules:"
-msgstr "建议加入 OpenClash 的自定义直连规则："
-
-msgid "When using Fake-IP mode, also add the UU domains above to the Fake-IP filter. This page only diagnoses the configuration and never changes OpenClash automatically."
-msgstr "使用 Fake-IP 模式时，还需将上述 UU 域名加入 Fake-IP 排除列表。本页面仅作诊断，不会自动修改 OpenClash。"
-
 msgid "UU has only reported the router MAC, not a phone/game device. Bind the target device in the UU mobile app and start acceleration there."
 msgstr "UU 目前只上报了路由器 MAC，没有上报手机或游戏设备。请在手机 UU App 中绑定目标设备并在那里启动加速。"

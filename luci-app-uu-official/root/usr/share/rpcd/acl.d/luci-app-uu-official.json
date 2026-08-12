@@ -6,16 +6,15 @@
 			"file": {
 				"/usr/libexec/uu-official/manager.sh status": [ "exec" ],
 				"/usr/libexec/uu-official/manager.sh devices": [ "exec" ],
-				"/usr/libexec/uu-official/manager.sh dns-status": [ "exec" ],
 				"/tmp/monitor.log": [ "read" ]
 			}
 		},
 		"write": {
 			"uci": [ "uu-official" ],
 			"file": {
-				"/etc/init.d/uu-official start": [ "exec" ],
-				"/etc/init.d/uu-official stop": [ "exec" ],
-				"/etc/init.d/uu-official restart": [ "exec" ],
+				"/usr/libexec/uu-official/manager.sh start": [ "exec" ],
+				"/usr/libexec/uu-official/manager.sh stop": [ "exec" ],
+				"/usr/libexec/uu-official/manager.sh restart": [ "exec" ],
 				"/usr/libexec/uu-official/manager.sh update-monitor": [ "exec" ],
 				"/usr/libexec/uu-official/manager.sh clean-runtime": [ "exec" ]
 			}
