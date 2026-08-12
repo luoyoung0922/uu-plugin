@@ -31,6 +31,18 @@ BusyBox 自带的 `md5sum` 用于完整性检查。
 
 ## 编译
 
+如果只想一键安装，不需要 OpenWrt SDK：直接把仓库里的
+`uu-official-installer.run` 上传到路由器执行即可：
+
+```sh
+chmod +x /tmp/uu-official-installer.run
+/tmp/uu-official-installer.run
+```
+
+安装器会检查并安装 `kmod-tun`、`curl`、`ca-bundle`，停用旧的 UU 启动方式，
+写入 LuCI 管理页面并启动服务。使用 `--no-start` 可只安装不启动，使用
+`--uninstall` 可移除本项目的管理层（不会删除 `/usr/sbin/uu` 中的官方运行时）。
+
 把本仓库放入 OpenWrt 源码树：
 
 ```sh
