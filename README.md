@@ -1,58 +1,89 @@
 # luci-app-uu-official
 
-这是一个面向 OpenWrt/iStoreOS 24.10+ 的网易 UU 路由器管理插件。项目只提供 LuCI 管理层、服务管理脚本和一键安装器；UU 官方监控脚本及 `uuplugin` 核心仍从网易官方接口下载。
+为 OpenWrt/iStoreOS 提供网易 UU 路由器插件的 LuCI 管理界面和一键安装器。
 
-> 本项目不是网易官方项目，与网易没有隶属或合作关系。UU、网易及相关商标归其权利人所有。
+本项目只维护开源的管理层，不分发网易 UU 的闭源核心。安装后，监控脚本和 `uuplugin` 运行时仍由网易官方接口提供，并沿用官方的启动方式。
 
-## 已完成的功能
+> 本项目不是网易官方项目，与网易没有隶属或合作关系。“网易”“UU”及相关商标归其权利人所有。
 
-- LuCI 页面：服务启停、重启、启用状态和运行状态。
-- 状态页：显示运行中的 PID、CPU 架构、监控脚本状态。
-- 加速设备页：只展示 UU 官方 `/tmp/uu/activate_status` 确认的设备，不把普通 ARP 邻居误报为加速设备。
-- 延迟检测：对 UU 已确认的设备 IP 执行 ping，并显示最近一次延迟。
-- 自动识别 `x86_64`、`aarch64`、ARM、MIPS 等架构，并从官方接口下载匹配文件。
-- 下载后按官方接口返回的 MD5 校验完整性。
-- 保留网易官方 `S99uuplugin` 启动和守护方式，LuCI 只负责管理及展示，不替换官方进程生命周期。
-- 自动停用旧的 `uugamebooster` 软件包启动方式，避免两套 UU 同时修改 nftables。
-- 不把网易闭源二进制重新打包进仓库或 IPK/APK。
+## 功能
+
+- 在 LuCI 中查看 UU 服务是否运行、进程 PID、架构和监控脚本状态
+- 启动、停止、重启服务，更新官方监控脚本，重新安装运行时
+- 从 UU 实际创建的 `XU_ACC_DEVICE_*` nftables 规则识别加速设备
+- 显示加速设备的 IP、MAC、可达延迟和规则包计数
+- 自动识别 `x86_64`、`aarch64`、ARM、MIPS 大小端架构
+- 按网易接口提供的 MD5 校验下载文件
+- 保留网易官方 `S99uuplugin` 启动方式
+- 避免与旧版 `uugamebooster` 软件包同时运行
+
+## 支持范围
+
+当前主要面向：
+
+- OpenWrt/iStoreOS 24.10 或相近版本
+- LuCI JavaScript 前端
+- `firewall4` / nftables
+- 具备可用 TUN 内核模块的设备
+
+安装器需要 `opkg`，并会检查 `kmod-tun`、`curl` 和 `ca-bundle`。其他 OpenWrt 分支、旧版 iptables 固件及厂商深度定制系统可能需要自行适配。
 
 ## 一键安装
 
-在路由器上执行：
+从 [Releases](https://github.com/luoyoung0922/uu-plugin/releases) 下载 `uu-official-installer.run`，上传到路由器后执行：
 
 ```sh
-scp uu-official-installer.run root@192.168.10.33:/tmp/
-ssh root@192.168.10.33
 chmod +x /tmp/uu-official-installer.run
 /tmp/uu-official-installer.run
 ```
 
-安装器会检查并安装 `kmod-tun`、`curl`、`ca-bundle`，注册 LuCI 文件，启用并启动 `uu-official` 服务。安装完成后打开：
+安装完成后进入：
 
-`服务 → 网易 UU`
+```text
+LuCI → 服务 → 网易 UU
+```
 
-也可以只安装不启动：
+只安装、不立即启动：
 
 ```sh
 /tmp/uu-official-installer.run --no-start
 ```
 
-卸载本项目管理层（保留 `/usr/sbin/uu` 和 `/tmp/uu` 中的官方运行文件）：
+移除本项目的 LuCI 管理层：
 
 ```sh
 /tmp/uu-official-installer.run --uninstall
 ```
 
-## LuCI 使用说明
+卸载管理层默认保留网易官方运行文件和临时状态。若需要完全移除 UU，请使用网易官方卸载脚本。
 
-进入“服务 → 网易 UU”后：
+## 使用方法
 
-1. 在“设置”页确认“启用服务”并保存。
-2. 在“状态”页查看服务是否已启用、是否运行、PID、架构和监控脚本状态。
-3. “加速设备”只在 UU 官方写入激活状态后显示；没有设备时页面会明确显示“暂无 UU 已确认的加速设备”。
-4. 延迟是路由器对设备 IP 的 ICMP 测量值，不代表 UU 服务器或游戏延迟。
+1. 安装插件并确认状态页显示服务正在运行。
+2. 手机与需要加速的设备连接到路由器所在局域网。
+3. 在网易 UU App 中添加路由器、选择目标设备并开始加速。
+4. 返回 LuCI 状态页查看 UU 实际下发的设备规则和包计数。
 
-## 命令行排障
+设备表中的含义：
+
+- **IP/MAC**：UU 规则对应的局域网设备
+- **延迟**：路由器 ping 设备的局域网可达延迟，不是游戏延迟
+- **Packets**：UU nftables 规则累计命中的数据包数量；持续增长通常表示规则正在处理流量
+
+`/tmp/uu/activate_status` 主要反映路由器注册状态，不应单独用于判断某个终端是否正在加速。本项目优先以 UU 实际创建的 `XU_ACC_DEVICE_*` 规则为准。
+
+## 主路由与旁路由
+
+主路由部署通常最省心。旁路由部署时需要自行保证目标设备的流量确实经过运行 UU 的 OpenWrt：
+
+- 目标设备的默认网关或策略路由应指向旁路由
+- 手机 App 的路由器发现可能依赖局域网路径和 DNS
+- “App 显示正在匹配”和“目标设备规则已生效”属于不同状态，旁路由环境中可能不同步
+- 请以目标设备规则是否出现、包计数是否增长以及游戏实测为准
+
+项目不会自动修改 OpenClash、PassWall、Tailscale、SmartDNS 或其他网络插件的配置。透明代理、DNS 劫持、策略路由和多网关环境可能与 UU 的规则产生冲突，建议逐项停用后排查。
+
+## 命令行检查
 
 ```sh
 /usr/libexec/uu-official/manager.sh status
@@ -63,9 +94,21 @@ chmod +x /tmp/uu-official-installer.run
 /usr/libexec/uu-official/manager.sh update-monitor
 ```
 
-监控日志通常位于 `/tmp/monitor.log`，也可使用 `logread -e uu-official` 查看管理器日志。运行文件位于 `/usr/sbin/uu`，临时核心位于 `/tmp/uu`。停止服务不会删除下载缓存；执行 `update-monitor` 时会备份旧脚本后重新从网易官方接口下载。
+其他常用检查：
 
-若页面安装后没有出现，先清理 LuCI 缓存并重载服务：
+```sh
+ps w | grep '[u]uplugin'
+nft list tables | grep XU_ACC
+ip rule
+ip route show table all
+tail -n 100 /tmp/monitor.log
+```
+
+## 常见问题
+
+### LuCI 菜单没有出现
+
+清理缓存并重新加载 LuCI：
 
 ```sh
 rm -f /tmp/luci-indexcache.*.json /tmp/luci-modulecache/*
@@ -73,11 +116,28 @@ rm -f /tmp/luci-indexcache.*.json /tmp/luci-modulecache/*
 /etc/init.d/uhttpd reload
 ```
 
-安装器会保留并重建网易官方 `/etc/rc.d/S99uuplugin` 启动链接。不要在监控进程仍运行时手工删除监控脚本。
+### 服务运行，但没有加速设备
 
-## 从源码编译
+先在 UU App 中添加路由器并开始加速。只有 UU 创建 `XU_ACC_DEVICE_<IP>_*` 规则后，状态页才会把该设备识别为正在加速。
 
-将 `luci-app-uu-official` 复制到 OpenWrt 源码树的 `package/` 目录，然后执行：
+### App 一直显示“正在匹配”
+
+先确认目标设备规则是否存在、包计数是否增长。如果实际规则生效但 App 状态没有更新，重点检查：
+
+- 手机和目标设备是否处于同一局域网
+- 旁路由网关、DNS和策略路由是否正确
+- 手机是否启用了私人 DNS、VPN、蜂窝数据辅助或代理
+- 透明代理/DNS 插件是否截获了 UU 的本地发现流量
+
+不要仅为了修复 App 文案反复清除运行状态；这会中断已经生效的加速规则并生成新的路由器注册会话。
+
+### 重复安装或服务冲突
+
+不要同时运行本项目、`uugamebooster` 和另一套 UU 启动脚本。安装器会停用已知旧服务，并重建网易官方 `/etc/rc.d/S99uuplugin` 链接。
+
+## 从源码构建
+
+将 `luci-app-uu-official` 放入 OpenWrt 源码树的 `package/` 目录：
 
 ```sh
 make menuconfig
@@ -85,27 +145,41 @@ make menuconfig
 make package/luci-app-uu-official/compile V=s
 ```
 
-生成的包位于 `bin/packages/.../luci/`。重新生成一键安装器（Windows PowerShell）：
+重新生成一键安装器（Windows PowerShell）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 ```
 
-## 官方分发接口
+## 网易官方接口
 
+- 安装脚本：`http://router.uu.163.com/api/script/install?type=openwrt`
 - 监控脚本：`http://router.uu.163.com/api/script/monitor?type=openwrt`
 - 核心程序：`http://router.uu.163.com/api/plugin?type=openwrt-<arch>`
 - 卸载脚本：`http://router.uu.163.com/api/script/uninstall?type=openwrt`
 
-官方接口可能变化；如下载失败，请先运行 `update-monitor` 并查看日志。
+官方接口、下载格式和闭源核心行为可能随时变化。
 
 ## 安全与隐私
 
-- MD5 仅用于发现传输损坏，不能替代数字签名或现代密码学完整性验证。
-- 执行和运行的是网易提供的闭源脚本/二进制，请自行评估供应链和隐私风险。
-- 本项目不会额外收集、代理或上传数据；UU 核心自身的网络行为由网易决定。
-- 请勿在公开渠道泄露路由器 root 密码，并在安装后修改默认密码。
+- 本项目不包含或重新分发网易闭源二进制
+- 本项目不会额外收集或上传用户数据
+- 网易官方核心的网络行为、隐私政策和服务条款由网易负责
+- 官方接口目前提供 MD5；MD5 可以发现传输损坏，但不能替代数字签名
+- 在路由器上执行第三方或官方远程脚本前，请自行评估供应链风险
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。报告问题时建议提供：
+
+- 固件名称和版本
+- CPU 架构
+- 主路由或旁路由拓扑
+- `manager.sh status` 与 `manager.sh devices` 输出
+- 已脱敏的 `/tmp/monitor.log`
+
+请勿提交路由器密码、UU 账号、UUID、公网地址或其他敏感信息。
 
 ## 许可证
 
-本仓库自有代码使用 MIT License。网易下载的脚本和闭源二进制不适用本仓库许可证。
+本仓库自有代码使用 [MIT License](LICENSE)。通过网易接口下载的脚本和二进制不适用本仓库许可证。
