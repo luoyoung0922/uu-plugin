@@ -174,3 +174,6 @@ msgstr "建议加入 OpenClash 的自定义直连规则："
 
 msgid "When using Fake-IP mode, also add the UU domains above to the Fake-IP filter. This page only diagnoses the configuration and never changes OpenClash automatically."
 msgstr "使用 Fake-IP 模式时，还需将上述 UU 域名加入 Fake-IP 排除列表。本页面仅作诊断，不会自动修改 OpenClash。"
+
+msgid "UU has only reported the router MAC, not a phone/game device. Bind the target device in the UU mobile app and start acceleration there."
+msgstr "UU 目前只上报了路由器 MAC，没有上报手机或游戏设备。请在手机 UU App 中绑定目标设备并在那里启动加速。"

@@ -88,6 +88,7 @@ return view.extend({
 					return E('tr', {}, [ E('td', {}, device.name || device.device || _('Unresolved IP')),
 						E('td', {}, device.mac || '-'), E('td', {}, device.uuid || '-'), E('td', {}, device.latency === 'unknown' ? _('Unknown') : (device.latency + ' ms')) ]);
 				}))) : E('p', { 'class': 'alert-message warning' }, devices.reason === 'activation_state_missing' ? _('UU has not published an activation state yet. Open the UU mobile app, bind the router and a device, then refresh.') : _('No accelerated device has been identified by UU yet. Open the UU mobile app and bind a device first.')),
+				devices.reason === 'router_mac_only' ? E('p', { 'class': 'alert-message warning' }, _('UU has only reported the router MAC, not a phone/game device. Bind the target device in the UU mobile app and start acceleration there.')) : null,
 				E('p', { 'class': 'cbi-map-descr' }, _('Device source: %s').format(devices.source || _('not available')))
 			]));
 		}

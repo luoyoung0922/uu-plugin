@@ -216,11 +216,12 @@ status_text() {
 }
 
 device_status() {
-	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid
+	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid router_mac reason=''
 	printf 'source=%s\n' "$status_file"
 	[ -r "$status_file" ] || { printf 'count=0\nreason=activation_state_missing\n'; return 0; }
 	# The official file is commonly: MAC.UUID. Resolve the MAC through the neighbour table.
 	printf '%s\n' '---'
+	router_mac="$(ip link show br-lan 2>/dev/null | sed -n 's/.*link\/ether \([^ ]*\).*/\1/p' | tr 'A-F' 'a-f')"
 	while IFS= read -r line; do
 		mac="$(printf '%s\n' "$line" | sed -n 's/^\([0-9A-Fa-f:][0-9A-Fa-f:]*\)\..*/\1/p' | tr 'A-F' 'a-f')"
 		[ -n "$mac" ] || continue
@@ -235,12 +236,14 @@ device_status() {
 			[ -n "$latency" ] || latency='reachable'
 		fi
 		rm -f /tmp/uu-ping.$$
+		[ "$mac" = "$router_mac" ] && reason='router_mac_only'
 		printf 'device=%s|name=%s|mac=%s|uuid=%s|latency=%s\n' "$ip" '' "$mac" "$uuid" "$latency"
 	# Some official releases write this file without a trailing newline.
 	done <<EOF
 $(cat "$status_file")
 	EOF
 	printf 'count=%s\n' "$(grep -c '^[0-9A-Fa-f].*\.' "$status_file" 2>/dev/null || echo 0)"
+	[ -n "$reason" ] && printf 'reason=%s\n' "$reason"
 }
 
 dns_status() {
