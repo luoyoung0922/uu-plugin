@@ -238,6 +238,29 @@ device_status() {
 	done
 }
 
+dns_status() {
+	local installed='0' running='0' mode='unknown' hijack='unknown' listeners='' resolved='' fakeip='0'
+	if [ -x /etc/init.d/openclash ] || [ -f /etc/config/openclash ]; then installed='1'; fi
+	if [ -x /etc/init.d/openclash ] && /etc/init.d/openclash status 2>/dev/null | grep -qi 'running'; then
+		running='1'
+	elif pidof clash >/dev/null 2>&1 || pidof mihomo >/dev/null 2>&1; then
+		running='1'
+	fi
+	if [ -f /etc/config/openclash ]; then
+		mode="$(uci -q get openclash.config.enhanced_mode 2>/dev/null || uci -q get openclash.config.dns_mode 2>/dev/null || echo unknown)"
+		hijack="$(uci -q get openclash.config.enable_redirect_dns 2>/dev/null || uci -q get openclash.config.dns_redirect 2>/dev/null || echo unknown)"
+	fi
+	if command -v ss >/dev/null 2>&1; then
+		listeners="$(ss -lnup 2>/dev/null | awk '$5 ~ /:53$/ {print $0}' | grep -Eo 'dnsmasq|smartdns|mosdns|clash|mihomo' | sort -u | tr '\n' ',' | sed 's/,$//')"
+	elif command -v netstat >/dev/null 2>&1; then
+		listeners="$(netstat -lnup 2>/dev/null | awk '$4 ~ /:53$/ {print $0}' | grep -Eo 'dnsmasq|smartdns|mosdns|clash|mihomo' | sort -u | tr '\n' ',' | sed 's/,$//')"
+	fi
+	resolved="$(nslookup router.uu.163.com 127.0.0.1 2>/dev/null | awk '/^Address [0-9]*: / {print $3} /^Address: / {print $2}' | tail -n1)"
+	case "$resolved" in 198.18.*|198.19.*) fakeip='1' ;; esac
+	printf 'openclash_installed=%s\nopenclash_running=%s\ndns_mode=%s\ndns_hijack=%s\ndns_listeners=%s\nuu_resolved=%s\nuu_fake_ip=%s\n' \
+		"$installed" "$running" "$mode" "$hijack" "${listeners:-unknown}" "${resolved:-unknown}" "$fakeip"
+}
+
 case "${1:-}" in
 	prepare) prepare "${2:-auto}" ;;
 	update-monitor) lock; update_monitor ;;
@@ -245,9 +268,10 @@ case "${1:-}" in
 	clean-runtime) clean_runtime ;;
 	status) status_text ;;
 	devices) device_status ;;
+	dns-status) dns_status ;;
 	detect-model) detect_model ;;
 	*)
-		echo "Usage: $0 {prepare [model]|update-monitor|stop-runtime|clean-runtime|status|detect-model}" >&2
+		echo "Usage: $0 {prepare [model]|update-monitor|stop-runtime|clean-runtime|status|devices|dns-status|detect-model}" >&2
 		exit 2
 		;;
 esac
