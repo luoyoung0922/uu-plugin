@@ -203,15 +203,39 @@ clean_runtime() {
 }
 
 status_text() {
-	local pid model='unknown' monitor='missing'
+	local pid model='unknown' monitor='missing' enabled='0'
 	[ -r "$MONITOR_CONFIG" ] && model="$(sed -n 's/^model=//p' "$MONITOR_CONFIG" | head -n1)"
 	[ -x "$MONITOR" ] && monitor='installed'
+	enabled="$(uci -q get uu-official.main.enabled 2>/dev/null || echo 0)"
 	pid="$(runtime_pid 2>/dev/null || true)"
 	if [ -n "$pid" ]; then
-		printf 'running\npid=%s\nmodel=%s\nmonitor=%s\n' "$pid" "$model" "$monitor"
+		printf 'running\nenabled=%s\npid=%s\nmodel=%s\nmonitor=%s\n' "$enabled" "$pid" "$model" "$monitor"
 	else
-		printf 'stopped\npid=\nmodel=%s\nmonitor=%s\n' "$model" "$monitor"
+		printf 'stopped\nenabled=%s\npid=\nmodel=%s\nmonitor=%s\n' "$enabled" "$model" "$monitor"
 	fi
+}
+
+device_status() {
+	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac
+	printf 'source=%s\n' "$status_file"
+	[ -r "$status_file" ] || { printf 'count=0\n'; return 0; }
+	# The official binary owns this file. Extract only IPv4 addresses present in it;
+	# these are candidates, never the complete ARP table.
+	printf '%s\n' '---'
+	grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' "$status_file" 2>/dev/null | sort -u | while read -r ip; do
+		[ -n "$ip" ] || continue
+		case "$ip" in 0.*|127.*|224.*|225.*|239.*) continue ;; esac
+		latency='unknown'
+		if command -v ping >/dev/null 2>&1 && ping -c 1 -W 1 "$ip" >/tmp/uu-ping.$$ 2>/dev/null; then
+			latency="$(sed -n 's/.*time[=<]\([0-9.]*\).*/\1/p' /tmp/uu-ping.$$ | head -n1)"
+			[ -n "$latency" ] || latency='reachable'
+		fi
+		rm -f /tmp/uu-ping.$$
+		name=''; mac=''
+		line="$(ip neigh show "$ip" 2>/dev/null | head -n1)"
+		mac="$(printf '%s\n' "$line" | awk '{for(i=1;i<=NF;i++) if ($i=="lladdr") print $(i+1)}')"
+		printf 'device=%s|name=%s|mac=%s|latency=%s\n' "$ip" "$name" "$mac" "$latency"
+	done
 }
 
 case "${1:-}" in
@@ -220,6 +244,7 @@ case "${1:-}" in
 	stop-runtime) stop_runtime ;;
 	clean-runtime) clean_runtime ;;
 	status) status_text ;;
+	devices) device_status ;;
 	detect-model) detect_model ;;
 	*)
 		echo "Usage: $0 {prepare [model]|update-monitor|stop-runtime|clean-runtime|status|detect-model}" >&2

@@ -34,6 +34,39 @@ msgstr "除非官方接口要求手动指定，否则请使用自动检测。"
 msgid "Running"
 msgstr "运行中"
 
+msgid "Service enabled: %s"
+msgstr "服务启用：%s"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "Acceleration devices"
+msgstr "加速设备"
+
+msgid "Device"
+msgstr "设备"
+
+msgid "MAC"
+msgstr "MAC 地址"
+
+msgid "Latency"
+msgstr "延迟"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "No accelerated device has been identified by UU yet. Open the UU mobile app and bind a device first."
+msgstr "UU 尚未识别到加速设备，请先在手机 UU App 中绑定设备。"
+
+msgid "Device source: %s"
+msgstr "设备数据来源：%s"
+
+msgid "not available"
+msgstr "不可用"
+
 msgid "Stopped"
 msgstr "已停止"
 

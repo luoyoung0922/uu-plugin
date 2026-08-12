@@ -5,6 +5,7 @@
 			"uci": [ "uu-official" ],
 			"file": {
 				"/usr/libexec/uu-official/manager.sh status": [ "exec" ],
+				"/usr/libexec/uu-official/manager.sh devices": [ "exec" ],
 				"/tmp/monitor.log": [ "read" ]
 			}
 		},
