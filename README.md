@@ -1,108 +1,96 @@
 # luci-app-uu-official
 
-一个面向 OpenWrt 24.10+ 的网易 UU 路由器插件管理界面。
+这是一个面向 OpenWrt/iStoreOS 24.10+ 的网易 UU 路由器管理插件。项目只提供 LuCI 管理层、服务管理脚本和一键安装器；UU 官方监控脚本及 `uuplugin` 核心仍从网易官方接口下载。
 
-本仓库只包含开源的 LuCI 管理层和服务脚本，不包含网易 UU 的闭源核心。
-安装并启用服务后，程序会从网易官方分发接口下载对应架构的监控脚本和
-`uuplugin` 核心。
+> 本项目不是网易官方项目，与网易没有隶属或合作关系。UU、网易及相关商标归其权利人所有。
 
-> 本项目不是网易官方项目，与网易公司无隶属或合作关系。“网易”“UU”及
-> 相关商标归其权利人所有。
+## 已完成的功能
 
-## 功能
+- LuCI 页面：服务启停、重启、启用状态和运行状态。
+- 状态页：显示运行中的 PID、CPU 架构、监控脚本状态。
+- 加速设备页：只展示 UU 官方 `/tmp/uu/activate_status` 确认的设备，不把普通 ARP 邻居误报为加速设备。
+- 延迟检测：对 UU 已确认的设备 IP 执行 ping，并显示最近一次延迟。
+- 自动识别 `x86_64`、`aarch64`、ARM、MIPS 等架构，并从官方接口下载匹配文件。
+- 下载后按官方接口返回的 MD5 校验完整性。
+- 使用 `procd` 管理监控进程，支持异常退出后自动拉起。
+- 自动停用旧的 `uugamebooster`/`S99uuplugin` 启动方式，避免两套 UU 同时修改 nftables。
+- 不把网易闭源二进制重新打包进仓库或 IPK/APK。
 
-- LuCI 中启停、重启和查看运行状态
-- 自动识别 `x86_64`、`aarch64`、ARM、MIPS 架构
-- 使用网易官方 API 获取下载地址
-- 按官方接口返回的 MD5 校验下载文件
-- 使用 `procd` 管理监控进程并支持异常拉起
-- 查看监控日志、刷新官方脚本、重新安装运行时
-- 不把闭源二进制打包进 IPK/APK
+## 一键安装
 
-## 支持范围
-
-- OpenWrt/iStoreOS 24.10 或相近版本
-- LuCI JavaScript 前端
-- `firewall4` / nftables
-- 已安装并可用的 TUN 内核模块
-
-推荐依赖会由包管理器自动安装：`kmod-tun`、`curl`、`ca-bundle`、
-BusyBox 自带的 `md5sum` 用于完整性检查。
-
-## 编译
-
-如果只想一键安装，不需要 OpenWrt SDK：直接把仓库里的
-`uu-official-installer.run` 上传到路由器执行即可：
+在路由器上执行：
 
 ```sh
+scp uu-official-installer.run root@192.168.10.33:/tmp/
+ssh root@192.168.10.33
 chmod +x /tmp/uu-official-installer.run
 /tmp/uu-official-installer.run
 ```
 
-安装器会检查并安装 `kmod-tun`、`curl`、`ca-bundle`，停用旧的 UU 启动方式，
-写入 LuCI 管理页面并启动服务。使用 `--no-start` 可只安装不启动，使用
-`--uninstall` 可移除本项目的管理层（不会删除 `/usr/sbin/uu` 中的官方运行时）。
+安装器会检查并安装 `kmod-tun`、`curl`、`ca-bundle`，注册 LuCI 文件，启用并启动 `uu-official` 服务。安装完成后打开：
 
-把本仓库放入 OpenWrt 源码树：
+`服务 → 网易 UU`
+
+也可以只安装不启动：
 
 ```sh
-cp -a luci-app-uu-official /path/to/openwrt/package/
-cd /path/to/openwrt
-make menuconfig
+/tmp/uu-official-installer.run --no-start
 ```
 
-在 `LuCI -> Applications` 中选择 `luci-app-uu-official`，然后编译：
+卸载本项目管理层（保留 `/usr/sbin/uu` 和 `/tmp/uu` 中的官方运行文件）：
 
 ```sh
-make package/luci-app-uu-official/compile V=s
+/tmp/uu-official-installer.run --uninstall
 ```
 
-生成的包位于 `bin/packages/.../luci/`。
+## LuCI 使用说明
 
-## 安装后使用
+进入“服务 → 网易 UU”后：
 
-LuCI 路径：`服务 -> 网易 UU`。
+1. 在“设置”页确认“启用服务”并保存。
+2. 在“状态”页查看服务是否已启用、是否运行、PID、架构和监控脚本状态。
+3. “加速设备”只在 UU 官方写入激活状态后显示；没有设备时页面会明确显示“暂无 UU 已确认的加速设备”。
+4. 延迟是路由器对设备 IP 的 ICMP 测量值，不代表 UU 服务器或游戏延迟。
 
-包安装时会注册开机启动，但 UCI 中的“启用服务”默认关闭；请在 LuCI 设置页
-开启并保存，然后从状态页启动服务。
-
-命令行：
+## 命令行排障
 
 ```sh
+/etc/init.d/uu-official status
 /etc/init.d/uu-official start
 /etc/init.d/uu-official stop
 /etc/init.d/uu-official restart
 /usr/libexec/uu-official/manager.sh status
+/usr/libexec/uu-official/manager.sh devices
 /usr/libexec/uu-official/manager.sh update-monitor
 ```
 
-运行文件保存在 `/usr/sbin/uu`，临时核心保存在 `/tmp/uu`。服务停止时不会
-删除下载缓存；“重新安装运行时”会清理后重新从网易下载。
+监控日志通常位于 `/tmp/monitor.log`，也可使用 `logread -e uu-official` 查看管理器日志。运行文件位于 `/usr/sbin/uu`，临时核心位于 `/tmp/uu`。停止服务不会删除下载缓存；执行 `update-monitor` 时会备份旧脚本后重新从网易官方接口下载。
 
-## 从网易原始脚本迁移
-
-若设备已经通过网易原始安装脚本创建 `/etc/rc.d/S99uuplugin`，请先停止旧
-监控进程并删除该启动链接，避免两套启动机制重复拉起：
+若页面安装后没有出现，先清理 LuCI 缓存并重载服务：
 
 ```sh
-for pid in $(ps w | awk '/[u]uplugin_monitor\.sh/ { print $1 }'); do kill "$pid"; done
-rm -f /etc/rc.d/S99uuplugin
-/etc/init.d/uu-official enable
-/etc/init.d/uu-official start
+rm -f /tmp/luci-indexcache.*.json /tmp/luci-modulecache/*
+/etc/init.d/rpcd restart
+/etc/init.d/uhttpd reload
 ```
 
-管理器在启动时也会检测重复运行的监控进程，并拒绝启动以避免冲突。
+如果此前使用过网易原始脚本创建的 `/etc/rc.d/S99uuplugin`，安装器会自动移除该启动链接；不要在 `procd` 进程仍运行时手工删除监控脚本。
 
-若还安装了 `uugamebooster`/`luci-app-uugamebooster` 软件包，请先卸载它们，
-不要让两个 UU 实现同时修改 nftables 规则。
+## 从源码编译
 
-## 安全说明
+将 `luci-app-uu-official` 复制到 OpenWrt 源码树的 `package/` 目录，然后执行：
 
-- 网易接口当前返回 MD5。MD5 可用于发现传输损坏，但不能替代数字签名或
-  现代密码学完整性验证。
-- 下载并执行的是网易提供的闭源二进制；请自行评估供应链和隐私风险。
-- 本项目不会收集、代理或上传额外数据；UU 核心本身的网络行为由网易决定。
-- 官方接口可能随时变更，届时需要更新管理脚本。
+```sh
+make menuconfig
+# LuCI → Applications → luci-app-uu-official
+make package/luci-app-uu-official/compile V=s
+```
+
+生成的包位于 `bin/packages/.../luci/`。重新生成一键安装器（Windows PowerShell）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
+```
 
 ## 官方分发接口
 
@@ -110,6 +98,15 @@ rm -f /etc/rc.d/S99uuplugin
 - 核心程序：`http://router.uu.163.com/api/plugin?type=openwrt-<arch>`
 - 卸载脚本：`http://router.uu.163.com/api/script/uninstall?type=openwrt`
 
+官方接口可能变化；如下载失败，请先运行 `update-monitor` 并查看日志。
+
+## 安全与隐私
+
+- MD5 仅用于发现传输损坏，不能替代数字签名或现代密码学完整性验证。
+- 执行和运行的是网易提供的闭源脚本/二进制，请自行评估供应链和隐私风险。
+- 本项目不会额外收集、代理或上传数据；UU 核心自身的网络行为由网易决定。
+- 请勿在公开渠道泄露路由器 root 密码，并在安装后修改默认密码。
+
 ## 许可证
 
-本仓库代码使用 MIT License。下载的网易脚本和二进制不适用本仓库许可证。
+本仓库自有代码使用 MIT License。网易下载的脚本和闭源二进制不适用本仓库许可证。
