@@ -18,8 +18,8 @@ return view.extend({
 		model.value('x86_64', 'x86_64');
 		model.value('aarch64', 'AArch64');
 		model.value('arm', 'ARM');
-		model.value('mipsel', 'MIPS little-endian');
-		model.value('mipseb', 'MIPS big-endian');
+		model.value('mipsel', _('MIPS little-endian'));
+		model.value('mipseb', _('MIPS big-endian'));
 		model.default = 'auto';
 		model.rmempty = false;
 		model.description = _('Use automatic detection unless the official API requires a manual override.');
@@ -27,4 +27,3 @@ return view.extend({
 		return m.render();
 	}
 });
-

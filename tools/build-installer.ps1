@@ -5,6 +5,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $source = (Resolve-Path $SourceRoot).Path
+$catalog = Join-Path $source 'root\usr\lib\lua\luci\i18n\uu-official.zh-cn.lmo'
+New-Item -ItemType Directory -Force (Split-Path $catalog) | Out-Null
+python (Join-Path $PSScriptRoot 'po2lmo.py') (Join-Path $source 'po\zh_Hans\uu-official.po') $catalog
+if ($LASTEXITCODE -ne 0) { throw 'Failed to compile LuCI translation catalog' }
 $files = @(
     @{ Src = 'root/etc/config/uu-official'; Dst = '/etc/config/uu-official'; Mode = '0644' },
     @{ Src = 'root/etc/init.d/uu-official'; Dst = '/etc/init.d/uu-official'; Mode = '0755' },
@@ -14,8 +18,10 @@ $files = @(
     @{ Src = 'root/usr/libexec/uu-official/openclash-sync.sh'; Dst = '/usr/libexec/uu-official/openclash-sync.sh'; Mode = '0755' },
     @{ Src = 'root/usr/share/luci/menu.d/luci-app-uu-official.json'; Dst = '/usr/share/luci/menu.d/luci-app-uu-official.json'; Mode = '0644' },
     @{ Src = 'root/usr/share/rpcd/acl.d/luci-app-uu-official.json'; Dst = '/usr/share/rpcd/acl.d/luci-app-uu-official.json'; Mode = '0644' },
+    @{ Src = 'root/usr/lib/lua/luci/i18n/uu-official.zh-cn.lmo'; Dst = '/usr/lib/lua/luci/i18n/uu-official.zh-cn.lmo'; Mode = '0644' },
     @{ Src = 'htdocs/luci-static/resources/view/uu-official/settings.js'; Dst = '/www/luci-static/resources/view/uu-official/settings.js'; Mode = '0644' },
-    @{ Src = 'htdocs/luci-static/resources/view/uu-official/status.js'; Dst = '/www/luci-static/resources/view/uu-official/status.js'; Mode = '0644' }
+    @{ Src = 'htdocs/luci-static/resources/view/uu-official/status.js'; Dst = '/www/luci-static/resources/view/uu-official/status.js'; Mode = '0644' },
+    @{ Src = 'htdocs/luci-static/resources/view/uu-official/log.js'; Dst = '/www/luci-static/resources/view/uu-official/log.js'; Mode = '0644' }
 )
 
 $header = @'
@@ -67,6 +73,7 @@ uninstall() {
 	[ -x /etc/init.d/uu-openclash-sync ] && { /etc/init.d/uu-openclash-sync disable >/dev/null 2>&1 || true; /etc/init.d/uu-openclash-sync stop >/dev/null 2>&1 || true; }
 	rm -f /etc/init.d/uu-openclash-sync /etc/rc.d/S98uu-openclash-sync
   rm -f /usr/share/luci/menu.d/luci-app-uu-official.json /usr/share/rpcd/acl.d/luci-app-uu-official.json
+  rm -f /usr/lib/lua/luci/i18n/uu-official.zh-cn.lmo
   rm -rf /usr/libexec/uu-official /www/luci-static/resources/view/uu-official /usr/share/luci-static/resources/view/uu-official
   log "manager removed; /usr/sbin/uu and /tmp/uu were preserved"
 }

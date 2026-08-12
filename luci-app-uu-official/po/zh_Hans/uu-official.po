@@ -147,3 +147,36 @@ msgstr "此操作会停止 UU、删除已下载的运行时缓存并重新启动
 
 msgid "UU has only reported the router MAC, not a phone/game device. Bind the target device in the UU mobile app and start acceleration there."
 msgstr "UU 目前只上报了路由器 MAC，没有上报手机或游戏设备。请在手机 UU App 中绑定目标设备并在那里启动加速。"
+
+msgid "UUID"
+msgstr "UUID"
+
+msgid "Packets"
+msgstr "数据包"
+
+msgid "Unresolved IP"
+msgstr "未解析 IP"
+
+msgid "UU has not published an activation state yet. Open the UU mobile app, bind the router and a device, then refresh."
+msgstr "UU 尚未发布激活状态，请在手机 UU App 中绑定路由器和设备后刷新。"
+
+msgid "Live log"
+msgstr "实时日志"
+
+msgid "The monitor log refreshes every two seconds."
+msgstr "监控日志每两秒自动刷新。"
+
+msgid "Pause auto-scroll"
+msgstr "暂停自动滚动"
+
+msgid "Resume auto-scroll"
+msgstr "继续自动滚动"
+
+msgid "Scroll to bottom"
+msgstr "滚动到底部"
+
+msgid "UU acceleration rules (nftables)"
+msgstr "UU 加速规则（nftables）"
+
+msgid "Official activation status"
+msgstr "官方激活状态"
