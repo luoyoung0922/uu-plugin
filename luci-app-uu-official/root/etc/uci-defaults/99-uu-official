@@ -1,5 +1,5 @@
 #!/bin/sh
 
 /etc/init.d/uu-official enable
+/etc/init.d/uu-openclash-sync enable
 exit 0
-

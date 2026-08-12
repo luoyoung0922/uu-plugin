@@ -8,8 +8,10 @@ $source = (Resolve-Path $SourceRoot).Path
 $files = @(
     @{ Src = 'root/etc/config/uu-official'; Dst = '/etc/config/uu-official'; Mode = '0644' },
     @{ Src = 'root/etc/init.d/uu-official'; Dst = '/etc/init.d/uu-official'; Mode = '0755' },
+    @{ Src = 'root/etc/init.d/uu-openclash-sync'; Dst = '/etc/init.d/uu-openclash-sync'; Mode = '0755' },
     @{ Src = 'root/etc/uci-defaults/99-uu-official'; Dst = '/etc/uci-defaults/99-uu-official'; Mode = '0755' },
     @{ Src = 'root/usr/libexec/uu-official/manager.sh'; Dst = '/usr/libexec/uu-official/manager.sh'; Mode = '0755' },
+    @{ Src = 'root/usr/libexec/uu-official/openclash-sync.sh'; Dst = '/usr/libexec/uu-official/openclash-sync.sh'; Mode = '0755' },
     @{ Src = 'root/usr/share/luci/menu.d/luci-app-uu-official.json'; Dst = '/usr/share/luci/menu.d/luci-app-uu-official.json'; Mode = '0644' },
     @{ Src = 'root/usr/share/rpcd/acl.d/luci-app-uu-official.json'; Dst = '/usr/share/rpcd/acl.d/luci-app-uu-official.json'; Mode = '0644' },
     @{ Src = 'htdocs/luci-static/resources/view/uu-official/settings.js'; Dst = '/www/luci-static/resources/view/uu-official/settings.js'; Mode = '0644' },
@@ -61,7 +63,9 @@ install_deps() {
 }
 uninstall() {
   [ -x /etc/init.d/uu-official ] && { /etc/init.d/uu-official disable >/dev/null 2>&1 || true; /etc/init.d/uu-official stop >/dev/null 2>&1 || true; }
-  rm -f /etc/rc.d/S99uu-official /etc/init.d/uu-official /etc/config/uu-official /etc/uci-defaults/99-uu-official
+	rm -f /etc/rc.d/S99uu-official /etc/init.d/uu-official /etc/config/uu-official /etc/uci-defaults/99-uu-official
+	[ -x /etc/init.d/uu-openclash-sync ] && { /etc/init.d/uu-openclash-sync disable >/dev/null 2>&1 || true; /etc/init.d/uu-openclash-sync stop >/dev/null 2>&1 || true; }
+	rm -f /etc/init.d/uu-openclash-sync /etc/rc.d/S98uu-openclash-sync
   rm -f /usr/share/luci/menu.d/luci-app-uu-official.json /usr/share/rpcd/acl.d/luci-app-uu-official.json
   rm -rf /usr/libexec/uu-official /www/luci-static/resources/view/uu-official /usr/share/luci-static/resources/view/uu-official
   log "manager removed; /usr/sbin/uu and /tmp/uu were preserved"
@@ -94,6 +98,8 @@ start() { /bin/sh /usr/sbin/uu/uuplugin_monitor.sh >/dev/null 2>&1 & }
 UU_BOOT_EOF
 chmod 0755 /usr/sbin/uu/S99uuplugin
 ln -sf /usr/sbin/uu/S99uuplugin /etc/rc.d/S99uuplugin
+/etc/init.d/uu-openclash-sync enable || die "cannot enable OpenClash sync"
+/etc/init.d/uu-openclash-sync start || die "cannot start OpenClash sync"
 if [ "$NO_START" -eq 0 ]; then
 	/usr/libexec/uu-official/manager.sh start || die "cannot start service"
   log "service started; use LuCI Services -> NetEase UU"
