@@ -1,0 +1,113 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "NetEase UU"
+msgstr "网易 UU"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Manage the NetEase-distributed UU router runtime. This open-source package does not include the proprietary UU binary."
+msgstr "管理由网易分发的 UU 路由器运行时。本开源软件包不包含闭源 UU 二进制文件。"
+
+msgid "Enable service"
+msgstr "启用服务"
+
+msgid "Runtime architecture"
+msgstr "运行时架构"
+
+msgid "Automatic detection"
+msgstr "自动检测"
+
+msgid "MIPS little-endian"
+msgstr "MIPS 小端"
+
+msgid "MIPS big-endian"
+msgstr "MIPS 大端"
+
+msgid "Use automatic detection unless the official API requires a manual override."
+msgstr "除非官方接口要求手动指定，否则请使用自动检测。"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Stopped"
+msgstr "已停止"
+
+msgid "PID: %s"
+msgstr "PID：%s"
+
+msgid "Architecture: %s"
+msgstr "架构：%s"
+
+msgid "Official monitor: %s"
+msgstr "官方监控脚本：%s"
+
+msgid "The runtime and monitor script are downloaded from NetEase official distribution servers."
+msgstr "运行时和监控脚本从网易官方分发服务器下载。"
+
+msgid "Start"
+msgstr "启动"
+
+msgid "Restart"
+msgstr "重启"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Update monitor"
+msgstr "更新监控脚本"
+
+msgid "Reinstall runtime"
+msgstr "重新安装运行时"
+
+msgid "Monitor log"
+msgstr "监控日志"
+
+msgid "No monitor log is available yet."
+msgstr "暂时没有监控日志。"
+
+msgid "The official API currently provides MD5 integrity values. MD5 detects accidental corruption but is not a cryptographic signature."
+msgstr "官方接口目前提供 MD5 完整性值。MD5 可以发现意外损坏，但不等同于密码学签名。"
+
+msgid "Confirm runtime reinstall"
+msgstr "确认重新安装运行时"
+
+msgid "This stops UU and removes its downloaded runtime cache. It does not change LuCI settings."
+msgstr "此操作会停止 UU 并删除已下载的运行时缓存，但不会更改 LuCI 设置。"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Reinstall"
+msgstr "重新安装"
+
+msgid "Please wait…"
+msgstr "请稍候……"
+
+msgid "Running command…"
+msgstr "正在执行命令……"
+
+msgid "Command failed"
+msgstr "命令执行失败"
+
+msgid "Service start requested."
+msgstr "已请求启动服务。"
+
+msgid "Service restarted."
+msgstr "服务已重启。"
+
+msgid "Service stopped."
+msgstr "服务已停止。"
+
+msgid "Official monitor script updated; restart the service to apply it."
+msgstr "官方监控脚本已更新；请重启服务以应用。"
+
+msgid "Runtime reinstall requested."
+msgstr "已请求重新安装运行时。"
+
+msgid "This stops UU, removes its downloaded runtime cache, and starts the service again. It does not change LuCI settings."
+msgstr "此操作会停止 UU、删除已下载的运行时缓存并重新启动服务，但不会更改 LuCI 设置。"

@@ -1,0 +1,27 @@
+name: lint
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install checks
+        run: sudo apt-get update && sudo apt-get install -y shellcheck gettext
+      - name: Check shell scripts
+        run: |
+          shellcheck -s sh -e SC2034 luci-app-uu-official/root/etc/init.d/uu-official
+          shellcheck -s sh luci-app-uu-official/root/etc/uci-defaults/99-uu-official
+          shellcheck -s sh luci-app-uu-official/root/usr/libexec/uu-official/manager.sh
+      - name: Check JSON
+        run: |
+          python3 -m json.tool luci-app-uu-official/root/usr/share/luci/menu.d/luci-app-uu-official.json >/dev/null
+          python3 -m json.tool luci-app-uu-official/root/usr/share/rpcd/acl.d/luci-app-uu-official.json >/dev/null
+      - name: Check translations
+        run: msgfmt --check -o /dev/null luci-app-uu-official/po/zh_Hans/uu-official.po
