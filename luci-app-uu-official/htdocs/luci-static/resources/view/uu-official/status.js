@@ -36,6 +36,10 @@ function parseDevices(text) {
 			data.source = line.substring(7);
 			return;
 		}
+		if (line.indexOf('reason=') === 0) {
+			data.reason = line.substring(7);
+			return;
+		}
 		if (line.indexOf('device=') !== 0)
 			return;
 		var item = {};
@@ -79,11 +83,11 @@ return view.extend({
 					_('Official monitor: %s').format(current.monitor || '-') ]),
 				E('h3', {}, _('Acceleration devices')),
 				devices.devices.length ? E('table', { 'class': 'table' }, [
-					E('tr', {}, [ E('th', {}, _('Device')), E('th', {}, _('MAC')), E('th', {}, _('Latency')) ])
+					E('tr', {}, [ E('th', {}, _('Device')), E('th', {}, _('MAC')), E('th', {}, _('UUID')), E('th', {}, _('Latency')) ])
 				].concat(devices.devices.map(function(device) {
-					return E('tr', {}, [ E('td', {}, device.name || device.device || '-'),
-						E('td', {}, device.mac || '-'), E('td', {}, device.latency === 'unknown' ? _('Unknown') : (device.latency + ' ms')) ]);
-				}))) : E('p', { 'class': 'alert-message warning' }, _('No accelerated device has been identified by UU yet. Open the UU mobile app and bind a device first.')),
+					return E('tr', {}, [ E('td', {}, device.name || device.device || _('Unresolved IP')),
+						E('td', {}, device.mac || '-'), E('td', {}, device.uuid || '-'), E('td', {}, device.latency === 'unknown' ? _('Unknown') : (device.latency + ' ms')) ]);
+				}))) : E('p', { 'class': 'alert-message warning' }, devices.reason === 'activation_state_missing' ? _('UU has not published an activation state yet. Open the UU mobile app, bind the router and a device, then refresh.') : _('No accelerated device has been identified by UU yet. Open the UU mobile app and bind a device first.')),
 				E('p', { 'class': 'cbi-map-descr' }, _('Device source: %s').format(devices.source || _('not available')))
 			]));
 		}

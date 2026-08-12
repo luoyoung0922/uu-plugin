@@ -216,26 +216,31 @@ status_text() {
 }
 
 device_status() {
-	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac
+	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid
 	printf 'source=%s\n' "$status_file"
-	[ -r "$status_file" ] || { printf 'count=0\n'; return 0; }
-	# The official binary owns this file. Extract only IPv4 addresses present in it;
-	# these are candidates, never the complete ARP table.
+	[ -r "$status_file" ] || { printf 'count=0\nreason=activation_state_missing\n'; return 0; }
+	# The official file is commonly: MAC.UUID. Resolve the MAC through the neighbour table.
 	printf '%s\n' '---'
-	grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' "$status_file" 2>/dev/null | sort -u | while read -r ip; do
-		[ -n "$ip" ] || continue
-		case "$ip" in 0.*|127.*|224.*|225.*|239.*) continue ;; esac
+	while IFS= read -r line; do
+		mac="$(printf '%s\n' "$line" | sed -n 's/^\([0-9A-Fa-f:][0-9A-Fa-f:]*\)\..*/\1/p' | tr 'A-F' 'a-f')"
+		[ -n "$mac" ] || continue
+		mac="$(printf '%s' "$mac" | sed 's/[^0-9a-f:]//g')"
+		case "$mac" in *:*:*:*:*:*) ;; *) continue ;; esac
+		uuid="$(printf '%s\n' "$line" | sed -n 's/^[^.]*\.//p')"
+		ip="$(ip neigh show 2>/dev/null | awk -v m="$mac" 'tolower($0) ~ ("lladdr " m " ") {print $1; exit}')"
+		[ -n "$ip" ] || ip='unresolved'
 		latency='unknown'
-		if command -v ping >/dev/null 2>&1 && ping -c 1 -W 1 "$ip" >/tmp/uu-ping.$$ 2>/dev/null; then
+		if [ "$ip" != unresolved ] && command -v ping >/dev/null 2>&1 && ping -c 1 -W 1 "$ip" >/tmp/uu-ping.$$ 2>/dev/null; then
 			latency="$(sed -n 's/.*time[=<]\([0-9.]*\).*/\1/p' /tmp/uu-ping.$$ | head -n1)"
 			[ -n "$latency" ] || latency='reachable'
 		fi
 		rm -f /tmp/uu-ping.$$
-		name=''; mac=''
-		line="$(ip neigh show "$ip" 2>/dev/null | head -n1)"
-		mac="$(printf '%s\n' "$line" | awk '{for(i=1;i<=NF;i++) if ($i=="lladdr") print $(i+1)}')"
-		printf 'device=%s|name=%s|mac=%s|latency=%s\n' "$ip" "$name" "$mac" "$latency"
-	done
+		printf 'device=%s|name=%s|mac=%s|uuid=%s|latency=%s\n' "$ip" '' "$mac" "$uuid" "$latency"
+	# Some official releases write this file without a trailing newline.
+	done <<EOF
+$(cat "$status_file")
+	EOF
+	printf 'count=%s\n' "$(grep -c '^[0-9A-Fa-f].*\.' "$status_file" 2>/dev/null || echo 0)"
 }
 
 dns_status() {
