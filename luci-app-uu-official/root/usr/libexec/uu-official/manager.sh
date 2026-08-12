@@ -216,7 +216,22 @@ status_text() {
 }
 
 device_status() {
-	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid router_mac reason=''
+	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid router_mac reason='' nft_ips nft_ip packets
+	nft_ips="$(nft list ruleset 2>/dev/null | sed -n 's/.*table ip XU_ACC_DEVICE_\([0-9.]*\)_mangle.*/\1/p' | sort -u)"
+	if [ -n "$nft_ips" ]; then
+		printf 'source=nftables/XU_ACC_DEVICE_*\n---\n'
+		for nft_ip in $nft_ips; do
+			mac="$(ip neigh show "$nft_ip" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="lladdr") print $(i+1); exit}')"
+			latency='unknown'
+			if command -v ping >/dev/null 2>&1 && ping -c 1 -W 1 "$nft_ip" >/tmp/uu-ping.$$ 2>/dev/null; then
+				latency="$(sed -n 's/.*time[=<]\([0-9.]*\).*/\1/p' /tmp/uu-ping.$$ | head -n1)"; [ -n "$latency" ] || latency='reachable'
+			fi
+			rm -f /tmp/uu-ping.$$
+			packets="$(nft list table ip XU_ACC_DEVICE_${nft_ip}_mangle 2>/dev/null | sed -n 's/.*counter packets \([0-9][0-9]*\).*/\1/p' | awk '{s+=$1} END{print s+0}')"
+			printf 'device=%s|name=|mac=%s|uuid=|latency=%s|packets=%s\n' "$nft_ip" "${mac:-unknown}" "$latency" "$packets"
+		done
+		return 0
+	fi
 	printf 'source=%s\n' "$status_file"
 	[ -r "$status_file" ] || { printf 'count=0\nreason=activation_state_missing\n'; return 0; }
 	# The official file is commonly: MAC.UUID. Resolve the MAC through the neighbour table.
@@ -241,7 +256,7 @@ device_status() {
 	# Some official releases write this file without a trailing newline.
 	done <<EOF
 $(cat "$status_file")
-	EOF
+EOF
 	printf 'count=%s\n' "$(grep -c '^[0-9A-Fa-f].*\.' "$status_file" 2>/dev/null || echo 0)"
 	[ -n "$reason" ] && printf 'reason=%s\n' "$reason"
 }
