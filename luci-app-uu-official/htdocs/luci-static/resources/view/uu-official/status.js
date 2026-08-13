@@ -80,7 +80,8 @@ return view.extend({
 	render: function(data) {
 		var status = parseStatus(data[0].stdout);
 		var devices = parseDevices(data[1].stdout);
-		var statusNode = E('div');
+		var serviceNode = E('div');
+		var devicesNode = E('div');
 		var messageNode = E('div');
 		var messageTimer = null;
 		function showMessage(message, level) {
@@ -104,17 +105,34 @@ return view.extend({
 			});
 		}
 		function renderStatus(current) {
-			dom.content(statusNode, E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, current.state === 'running' ? _('Running') : _('Stopped')),
+			var activeDevices = devices.devices.filter(function(device) {
+				return device.device && device.device !== 'unresolved';
+			});
+			dom.content(serviceNode, E('div', { 'class': 'cbi-section' }, [
+				E('h3', {}, _('Service status')),
+				E('div', { 'class': current.state === 'running' ? 'uu-service-state active' : 'uu-service-state' }, [
+					E('span', { 'class': 'uu-state-dot' }),
+					E('strong', {}, current.state === 'running' ? _('Running') : _('Stopped'))
+				]),
 				E('p', {}, [ _('PID: %s').format(current.pid || '-'), E('br'),
 					_('Service enabled: %s').format(current.enabled === '1' ? _('Yes') : _('No')), E('br'),
 					_('Architecture: %s').format(current.model || '-'), E('br'),
-					_('Official monitor: %s').format(current.monitor || '-') ]),
+					_('Official monitor: %s').format(current.monitor || '-') ])
+			]));
+			dom.content(devicesNode, E('div', { 'class': 'cbi-section uu-devices-section' }, [
 				E('h3', {}, _('Acceleration devices')),
-				devices.devices.length ? E('table', { 'class': 'table' }, [
+				activeDevices.length ? E('div', { 'class': 'uu-accelerating-banner' }, [
+					E('span', { 'class': 'uu-radar' }),
+					E('strong', {}, _('Acceleration active')),
+					E('span', { 'class': 'uu-flow-dots' }, [ E('i'), E('i'), E('i') ])
+				]) : E('div', { 'class': 'uu-detecting-banner' }, [
+					E('span', { 'class': 'uu-scanner' }),
+					E('span', {}, current.state === 'running' ? _('Waiting for an accelerated device') : _('Start the service to detect devices'))
+				]),
+				activeDevices.length ? E('table', { 'class': 'table uu-device-table' }, [
 					E('tr', {}, [ E('th', {}, _('Device')), E('th', {}, _('MAC')), E('th', {}, _('UUID')), E('th', {}, _('Latency')), E('th', {}, _('Packets')) ])
-				].concat(devices.devices.map(function(device) {
-					return E('tr', {}, [ E('td', {}, device.name || device.device || _('Unresolved IP')),
+				].concat(activeDevices.map(function(device) {
+					return E('tr', { 'class': 'uu-device-row' }, [ E('td', {}, [ E('span', { 'class': 'uu-device-pulse' }), device.name || device.device ]),
 						E('td', {}, device.mac || '-'), E('td', {}, device.uuid || '-'), E('td', {}, device.latency === 'unknown' ? _('Unknown') : (device.latency + ' ms')), E('td', {}, device.packets || '0') ]);
 				}))) : E('p', { 'class': 'alert-message warning' }, devices.reason === 'activation_state_missing' ? _('UU has not published an activation state yet. Open the UU mobile app, bind the router and a device, then refresh.') : _('No accelerated device has been identified by UU yet. Open the UU mobile app and bind a device first.')),
 				devices.reason === 'router_mac_only' ? E('p', { 'class': 'alert-message warning' }, _('UU has only reported the router MAC, not a phone/game device. Bind the target device in the UU mobile app and start acceleration there.')) : null,
@@ -157,11 +175,18 @@ return view.extend({
 		poll.add(refreshStatus, 2);
 
 		return E([], [
+			E('style', {}, [
+				'@keyframes uu-pulse{0%{transform:scale(.7);opacity:.35}50%{transform:scale(1.35);opacity:1}100%{transform:scale(.7);opacity:.35}}',
+				'@keyframes uu-radar{0%{box-shadow:0 0 0 0 rgba(46,204,113,.65)}70%{box-shadow:0 0 0 12px rgba(46,204,113,0)}100%{box-shadow:0 0 0 0 rgba(46,204,113,0)}}',
+				'@keyframes uu-scan{0%{transform:translateX(0);opacity:.25}50%{opacity:1}100%{transform:translateX(28px);opacity:.25}}',
+				'.uu-service-state{display:flex;align-items:center;gap:9px;font-size:1.15em}.uu-state-dot,.uu-device-pulse,.uu-radar{display:inline-block;width:10px;height:10px;border-radius:50%;background:#999}.uu-service-state.active .uu-state-dot,.uu-device-pulse,.uu-radar{background:#2ecc71;animation:uu-pulse 1.4s infinite}.uu-accelerating-banner,.uu-detecting-banner{display:flex;align-items:center;gap:10px;padding:12px 14px;margin:8px 0 14px;border-radius:6px;background:rgba(46,204,113,.12);color:#199447}.uu-detecting-banner{background:rgba(127,127,127,.1);color:inherit}.uu-radar{animation:uu-radar 1.5s infinite}.uu-scanner{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3498db;animation:uu-scan 1.2s ease-in-out infinite alternate}.uu-flow-dots i{display:inline-block;width:5px;height:5px;margin-left:5px;border-radius:50%;background:#2ecc71;animation:uu-pulse 1.2s infinite}.uu-flow-dots i:nth-child(2){animation-delay:.2s}.uu-flow-dots i:nth-child(3){animation-delay:.4s}.uu-device-row{transition:background .3s}.uu-device-row:hover{background:rgba(46,204,113,.08)}.uu-device-pulse{width:8px;height:8px;margin-right:8px}'
+			]),
 			E('h2', {}, _('NetEase UU')),
 			E('div', { 'class': 'cbi-map-descr' },
 				_('The runtime and monitor script are downloaded from NetEase official distribution servers.')),
 			messageNode,
-			statusNode,
+			serviceNode,
+			devicesNode,
 			E('div', { 'class': 'cbi-section' }, [
 				E('button', {
 					'class': 'btn cbi-button cbi-button-action',

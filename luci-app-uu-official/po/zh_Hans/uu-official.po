@@ -183,3 +183,15 @@ msgstr "UU 加速规则（nftables）"
 
 msgid "Official activation status"
 msgstr "官方激活状态"
+
+msgid "Service status"
+msgstr "运行状态"
+
+msgid "Acceleration active"
+msgstr "设备正在加速"
+
+msgid "Waiting for an accelerated device"
+msgstr "正在等待加速设备"
+
+msgid "Start the service to detect devices"
+msgstr "请启动服务以检测设备"
