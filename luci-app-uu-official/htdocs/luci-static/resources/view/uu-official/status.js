@@ -50,8 +50,9 @@ function parseDevices(text) {
 		}
 		if (line.indexOf('device=') !== 0)
 			return;
-		var item = {};
-		line.substring(7).split('|').forEach(function(field) {
+		var fields = line.substring(7).split('|');
+		var item = { device: fields.shift() || '' };
+		fields.forEach(function(field) {
 			var pos = field.indexOf('=');
 			if (pos > 0)
 				item[field.substring(0, pos)] = field.substring(pos + 1);
