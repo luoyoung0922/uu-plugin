@@ -229,19 +229,35 @@ status_text() {
 }
 
 device_status() {
-	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid router_mac reason='' nft_ips nft_ip packets
+	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid router_mac reason='' nft_ips nft_ip packets kind hints
 	nft_ips="$(nft list ruleset 2>/dev/null | sed -n 's/.*table ip XU_ACC_DEVICE_\([0-9.]*\)_mangle.*/\1/p' | sort -u)"
 	if [ -n "$nft_ips" ]; then
 		printf 'source=nftables/XU_ACC_DEVICE_*\n---\n'
 		for nft_ip in $nft_ips; do
 			mac="$(ip neigh show "$nft_ip" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="lladdr") print $(i+1); exit}')"
+			name="$(awk -v ip="$nft_ip" '$3 == ip { print $4; exit }' /tmp/dhcp.leases 2>/dev/null)"
+			[ "$name" = '*' ] && name=''
+			if [ -z "$name" ] && [ -n "$mac" ]; then
+				name="$(uci -q show dhcp 2>/dev/null | awk -F= -v mac="$mac" '
+					tolower($2) ~ tolower(mac) { section=$1; sub(/\.mac$/, "", section) }
+					section != "" && $1 == section ".name" { gsub(/^.|.$/, "", $2); print $2; exit }')"
+			fi
+			hints="$(printf '%s\n' "$name" | tr 'A-Z' 'a-z') $(nft list ruleset 2>/dev/null | grep "$nft_ip" | tr 'A-Z' 'a-z')"
+			case "$hints" in
+				*playstation*|*ps4*|*ps5*|*'sport 9308'*|*'dport 9308'*|*'sport 9295'*|*'dport 9295'*) kind='playstation' ;;
+				*nintendo*|*switch*) kind='switch' ;;
+				*xbox*|*xboxone*|*xbox-series*) kind='xbox' ;;
+				*iphone*|*ipad*|*android*|*phone*) kind='mobile' ;;
+				*windows*|*desktop*|*laptop*|*macbook*) kind='computer' ;;
+				*) kind='console' ;;
+			esac
 			latency='unknown'
 			if command -v ping >/dev/null 2>&1 && ping -c 1 -W 1 "$nft_ip" >/tmp/uu-ping.$$ 2>/dev/null; then
 				latency="$(sed -n 's/.*time[=<]\([0-9.]*\).*/\1/p' /tmp/uu-ping.$$ | head -n1)"; [ -n "$latency" ] || latency='reachable'
 			fi
 			rm -f /tmp/uu-ping.$$
 			packets="$(nft list table ip XU_ACC_DEVICE_${nft_ip}_mangle 2>/dev/null | sed -n 's/.*counter packets \([0-9][0-9]*\).*/\1/p' | awk '{s+=$1} END{print s+0}')"
-			printf 'device=%s|name=|mac=%s|uuid=|latency=%s|packets=%s\n' "$nft_ip" "${mac:-unknown}" "$latency" "$packets"
+			printf 'device=%s|name=%s|mac=%s|uuid=|latency=%s|packets=%s|kind=%s\n' "$nft_ip" "$name" "${mac:-unknown}" "$latency" "$packets" "$kind"
 		done
 		return 0
 	fi

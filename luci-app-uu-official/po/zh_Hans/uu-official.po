@@ -195,3 +195,30 @@ msgstr "正在等待加速设备"
 
 msgid "Start the service to detect devices"
 msgstr "请启动服务以检测设备"
+
+msgid "PlayStation"
+msgstr "PlayStation"
+
+msgid "Nintendo Switch"
+msgstr "Nintendo Switch"
+
+msgid "Xbox"
+msgstr "Xbox"
+
+msgid "Mobile device"
+msgstr "移动设备"
+
+msgid "Computer"
+msgstr "电脑"
+
+msgid "Game console"
+msgstr "游戏主机"
+
+msgid "Accelerating"
+msgstr "加速中"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Processed packets"
+msgstr "已处理数据包"
