@@ -154,6 +154,18 @@ write_config() {
 	mv "$tmp" "$MONITOR_CONFIG"
 }
 
+write_boot_hook() {
+	local hook="$INSTALL_DIR/S99uuplugin" tmp="${INSTALL_DIR}/S99uuplugin.tmp.$$"
+	{
+		echo '#!/bin/sh /etc/rc.common'
+		echo 'START=99'
+		echo 'start() { /bin/sh /usr/sbin/uu/uuplugin_monitor.sh >/dev/null 2>&1 & }'
+	} > "$tmp" || die "cannot write boot hook"
+	chmod 0755 "$tmp"
+	mv "$tmp" "$hook"
+	ln -sf "$hook" /etc/rc.d/S99uuplugin
+}
+
 update_monitor() {
 	mkdir -p "$INSTALL_DIR" "$RUNTIME_DIR"
 	download_verified "$MONITOR_API" "$MONITOR"
@@ -170,6 +182,7 @@ prepare() {
 	mkdir -p "$INSTALL_DIR" "$RUNTIME_DIR"
 	[ -x "$MONITOR" ] || update_monitor
 	write_config "$model"
+	write_boot_hook
 	log "runtime prepared for $model"
 }
 
@@ -262,7 +275,14 @@ EOF
 }
 
 official_start() {
-	[ -x "$MONITOR" ] || die "official monitor is not installed"
+	local requested model
+	requested="${1:-$(uci -q get uu-official.main.model 2>/dev/null || echo auto)}"
+	model="$(normalize_model "$requested")" || die "unsupported architecture: $(uname -m 2>/dev/null)"
+	lock
+	mkdir -p "$INSTALL_DIR" "$RUNTIME_DIR"
+	[ -x "$MONITOR" ] || update_monitor
+	write_config "$model"
+	write_boot_hook
 	other_monitor_running >/dev/null 2>&1 && return 0
 	/bin/sh "$MONITOR" >/dev/null 2>&1 &
 	log "official monitor started"
@@ -282,7 +302,7 @@ case "${1:-}" in
 	clean-runtime) clean_runtime ;;
 	status) status_text ;;
 	devices) device_status ;;
-	start) official_start ;;
+	start) official_start "${2:-}" ;;
 	stop) official_stop ;;
 	restart) official_stop; sleep 1; official_start ;;
 	detect-model) detect_model ;;
