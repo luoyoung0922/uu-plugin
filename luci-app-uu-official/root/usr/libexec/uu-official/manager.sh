@@ -274,6 +274,11 @@ EOF
 	[ -n "$reason" ] && printf 'reason=%s\n' "$reason"
 }
 
+log_tail() {
+	[ -r /tmp/monitor.log ] || return 0
+	tail -n 600 /tmp/monitor.log
+}
+
 official_start() {
 	local requested model
 	requested="${1:-$(uci -q get uu-official.main.model 2>/dev/null || echo auto)}"
@@ -302,12 +307,13 @@ case "${1:-}" in
 	clean-runtime) clean_runtime ;;
 	status) status_text ;;
 	devices) device_status ;;
+	log) log_tail ;;
 	start) official_start "${2:-}" ;;
 	stop) official_stop ;;
 	restart) official_stop; sleep 1; official_start ;;
 	detect-model) detect_model ;;
 	*)
-		echo "Usage: $0 {prepare [model]|update-monitor|stop-runtime|clean-runtime|status|devices|start|stop|restart|detect-model}" >&2
+		echo "Usage: $0 {prepare [model]|update-monitor|stop-runtime|clean-runtime|status|devices|log|start|stop|restart|detect-model}" >&2
 		exit 2
 		;;
 esac

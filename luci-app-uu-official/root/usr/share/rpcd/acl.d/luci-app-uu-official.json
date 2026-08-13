@@ -6,6 +6,7 @@
 			"file": {
 				"/usr/libexec/uu-official/manager.sh status": [ "exec" ],
 				"/usr/libexec/uu-official/manager.sh devices": [ "exec" ],
+				"/usr/libexec/uu-official/manager.sh log": [ "exec" ],
 				"/tmp/monitor.log": [ "read" ]
 			}
 		},

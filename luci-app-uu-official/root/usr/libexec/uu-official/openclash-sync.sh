@@ -3,7 +3,8 @@
 set -u
 
 TAG="uu_official_dynamic_bypass"
-STATE="/tmp/uu-official-openclash-ips"
+STATE="/tmp/uu-official-proxy-bypass-state"
+SIGNATURE="${STATE}.signature"
 
 active_ips() {
 	nft list tables 2>/dev/null |
@@ -11,30 +12,73 @@ active_ips() {
 		sort -u
 }
 
+proxy_chains() {
+	# Detect transparent proxy nftables chains by implementation name, without
+	# depending on any specific package's UCI configuration.
+	nft list ruleset 2>/dev/null | awk '
+		/^table (ip|inet) [A-Za-z0-9_.-]+ \{/ { family=$2; table=$3; next }
+		/^[[:space:]]*chain [A-Za-z0-9_.-]+ \{/ {
+			chain=$2
+			name=tolower(table " " chain)
+			if (name ~ /(openclash|passwall|psw|ssr|shadowsocks|homeproxy|mihomo|nikki|singbox|sing-box|v2ray|xray)/)
+				print family "|" table "|" chain
+			next
+		}
+	' | sort -u
+}
+
+known_chains() {
+	local target family table chain
+	for target in \
+		'inet|fw4|openclash' 'inet|fw4|openclash_mangle' 'inet|fw4|openclash_dns_redirect' \
+		'inet|fw4|PSW' 'inet|fw4|PSW_MANGLE' 'inet|fw4|PSW_REDIRECT' 'inet|fw4|PSW_DNS' \
+		'inet|fw4|SSRPLUS' 'inet|fw4|SSRPLUS_MANGLE' 'inet|fw4|SSRPLUS_DNS'; do
+		IFS='|' read -r family table chain <<EOF
+$target
+EOF
+		nft list chain "$family" "$table" "$chain" >/dev/null 2>&1 && printf '%s\n' "$target"
+	done
+}
+
+targets() {
+	{ proxy_chains; known_chains; } | sort -u
+}
+
 delete_tagged_rules() {
-	local chain handles handle
-	for chain in openclash openclash_mangle openclash_dns_redirect; do
-		handles="$(nft -a list chain inet fw4 "$chain" 2>/dev/null |
+	local target family table chain handles handle
+	{ targets; [ -r "$STATE" ] && sed -n 's/^target=//p' "$STATE"; } | sort -u |
+	while IFS= read -r target; do
+		[ -n "$target" ] || continue
+		IFS='|' read -r family table chain <<EOF
+$target
+EOF
+		handles="$(nft -a list chain "$family" "$table" "$chain" 2>/dev/null |
 			awk -v tag="$TAG" 'index($0, tag) {for(i=1;i<=NF;i++) if($i=="handle") print $(i+1)}' |
 			sort -rn)"
 		for handle in $handles; do
-			nft delete rule inet fw4 "$chain" handle "$handle" 2>/dev/null || true
+			nft delete rule "$family" "$table" "$chain" handle "$handle" 2>/dev/null || true
 		done
 	done
 }
 
 apply_rules() {
-	local ips="$1" ip
+	local ips="$1" current_targets target family table chain ip
 	delete_tagged_rules
 	[ -n "$ips" ] || { rm -f "$STATE"; return 0; }
-	nft list chain inet fw4 openclash >/dev/null 2>&1 || return 0
-	for ip in $ips; do
-		case "$ip" in *[!0-9.]*|'') continue ;; esac
-		nft insert rule inet fw4 openclash ip saddr "$ip" counter return comment "$TAG" 2>/dev/null || true
-		nft insert rule inet fw4 openclash_mangle ip saddr "$ip" counter return comment "$TAG" 2>/dev/null || true
-		nft insert rule inet fw4 openclash_dns_redirect ip saddr "$ip" counter return comment "$TAG" 2>/dev/null || true
+	current_targets="$(targets)"
+	[ -n "$current_targets" ] || { rm -f "$STATE"; return 0; }
+	: > "$STATE"
+	printf '%s\n' "$current_targets" | while IFS= read -r target; do
+		IFS='|' read -r family table chain <<EOF
+$target
+EOF
+		for ip in $ips; do
+			case "$ip" in *[!0-9.]*|'') continue ;; esac
+			nft insert rule "$family" "$table" "$chain" ip saddr "$ip" counter return comment "$TAG" 2>/dev/null || true
+		done
+		printf 'target=%s\n' "$target" >> "$STATE"
 	done
-	printf '%s\n' "$ips" > "$STATE"
+	printf '%s\n' "$ips" | sed 's/^/ip=/' >> "$STATE"
 }
 
 case "${1:-run}" in
@@ -43,16 +87,17 @@ case "${1:-run}" in
 		;;
 	cleanup)
 		delete_tagged_rules
-		rm -f "$STATE"
+		rm -f "$STATE" "$SIGNATURE"
 		;;
 	run)
-		last=''
 		while true; do
 			current="$(active_ips)"
-			# Reapply when the active list changes or OpenClash rebuilt its chains.
-			if [ "$current" != "$last" ] || { [ -n "$current" ] && ! nft -a list chain inet fw4 openclash 2>/dev/null | grep -q "$TAG"; }; then
+			current_targets="$(targets)"
+			signature="$(printf '%s\n--\n%s\n' "$current" "$current_targets")"
+			previous="$(cat "$SIGNATURE" 2>/dev/null || true)"
+			if [ "$signature" != "$previous" ] || { [ -n "$current" ] && [ -n "$current_targets" ] && ! nft list ruleset 2>/dev/null | grep -q "$TAG"; }; then
 				apply_rules "$current"
-				last="$current"
+				printf '%s' "$signature" > "$SIGNATURE"
 			fi
 			sleep 2
 		done

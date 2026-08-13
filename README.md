@@ -16,7 +16,7 @@
 - 按网易接口提供的 MD5 校验下载文件
 - 保留网易官方 `S99uuplugin` 启动方式
 - 避免与旧版 `uugamebooster` 软件包同时运行
-- 可选的 OpenClash 动态联动：仅在 UU 实际创建设备规则时绕过代理，停止加速后自动恢复
+- 动态代理联动：仅在 UU 实际创建设备规则时绕过透明代理，停止加速后自动恢复
 
 ## 支持范围
 
@@ -82,16 +82,17 @@ LuCI → 服务 → 网易 UU
 - “App 显示正在匹配”和“目标设备规则已生效”属于不同状态，旁路由环境中可能不同步
 - 请以目标设备规则是否出现、包计数是否增长以及游戏实测为准
 
-项目不会改写 OpenClash 配置文件。内置的 `uu-openclash-sync` 服务只观察 UU 创建的 `XU_ACC_DEVICE_<IP>_*` 表，并临时向 OpenClash nftables 链加入带专用注释的绕过规则：
+项目不会改写任何代理软件的配置文件。内置的 `uu-openclash-sync` 兼容服务会观察 UU 创建的 `XU_ACC_DEVICE_<IP>_*` 表，并自动识别 OpenClash、PassWall、SSR Plus、HomeProxy、Mihomo/Nikki、sing-box、Shadowsocks、V2Ray/Xray 等常见透明代理的 nftables 链，临时加入带专用注释的绕过规则：
 
-- UU 开始加速：检测到设备表后，该设备临时绕过 OpenClash
-- UU 停止加速：设备表消失后，自动删除临时规则，该设备恢复走 OpenClash
+- UU 开始加速：检测到设备表后，该设备临时绕过已识别的透明代理
+- UU 停止加速：设备表消失后，自动删除临时规则，该设备恢复原代理策略
+- 代理软件重载规则：同步服务自动重新识别并补回绕过规则
 - 不需要写死设备 IP，也不会永久添加 `SRC-IP-CIDR,DIRECT`
 
 检查动态规则：
 
 ```sh
-nft -a list chain inet fw4 openclash | grep 'uu_official_dynamic_bypass'
+nft list ruleset | grep 'uu_official_dynamic_bypass'
 /etc/init.d/uu-openclash-sync status
 ```
 
@@ -102,7 +103,7 @@ nft -a list chain inet fw4 openclash | grep 'uu_official_dynamic_bypass'
 /etc/init.d/uu-openclash-sync stop
 ```
 
-PassWall、Tailscale、SmartDNS 等其他插件不在自动联动范围内。透明代理、DNS 劫持、策略路由和多网关环境仍可能与 UU 规则冲突，建议逐项排查。
+联动只处理可识别的 nftables 透明代理链。Tailscale、SmartDNS、独立策略路由、多网关以及使用 iptables 的旧版插件不属于此机制的处理范围，遇到冲突时仍需按实际网络拓扑排查。
 
 ## 命令行检查
 

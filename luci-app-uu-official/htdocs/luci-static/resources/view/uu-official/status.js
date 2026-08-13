@@ -15,6 +15,15 @@ function exec(path, args) {
 	});
 }
 
+function timeout(promise, seconds) {
+	return Promise.race([
+		promise,
+		new Promise(function(resolve, reject) {
+			window.setTimeout(function() { reject(new Error(_('Command timed out. Check the live log for details.'))); }, seconds * 1000);
+		})
+	]);
+}
+
 function parseStatus(text) {
 	var lines = (text || '').trim().split(/\n/);
 	var data = { state: lines.shift() || 'unknown' };
@@ -72,6 +81,28 @@ return view.extend({
 		var status = parseStatus(data[0].stdout);
 		var devices = parseDevices(data[1].stdout);
 		var statusNode = E('div');
+		var messageNode = E('div');
+		var messageTimer = null;
+		function showMessage(message, level) {
+			if (messageTimer)
+				window.clearTimeout(messageTimer);
+			dom.content(messageNode, E('p', {
+				'class': 'alert-message ' + (level === 'error' ? 'danger' : 'success')
+			}, message));
+			messageTimer = window.setTimeout(function() {
+				dom.content(messageNode, '');
+				messageTimer = null;
+			}, 4000);
+		}
+		function refreshStatus() {
+			return Promise.all([
+				L.resolveDefault(fs.exec(manager, [ 'status' ]), { stdout: 'unknown' }),
+				L.resolveDefault(fs.exec(manager, [ 'devices' ]), { stdout: '' })
+			]).then(function(res) {
+				devices = parseDevices(res[1].stdout);
+				renderStatus(parseStatus(res[0].stdout));
+			});
+		}
 		function renderStatus(current) {
 			dom.content(statusNode, E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, current.state === 'running' ? _('Running') : _('Stopped')),
@@ -91,66 +122,65 @@ return view.extend({
 			]));
 		}
 
-		function action(path, args, success) {
-			ui.showModal(_('Please wait…'), [ E('p', { 'class': 'spinning' }, _('Running command…')) ]);
-			return exec(path, args).then(function() {
-				ui.hideModal();
-				ui.addNotification(null, E('p', success), 'info');
+		function action(button, path, args, success) {
+			button.disabled = true;
+			button.classList.add('spinning');
+			return timeout(exec(path, args), 45).then(function() {
+				showMessage(success, 'info');
 			}).catch(function(err) {
-				ui.hideModal();
-				ui.addNotification(null, E('p', err.message), 'error');
+				showMessage(err.message, 'error');
+			}).then(function() {
+				button.disabled = false;
+				button.classList.remove('spinning');
+				return refreshStatus();
 			});
 		}
 
-		function reinstall() {
-			ui.showModal(_('Please wait…'), [ E('p', { 'class': 'spinning' }, _('Running command…')) ]);
-			return exec(manager, [ 'stop' ])
+		function reinstall(button) {
+			button.disabled = true;
+			button.classList.add('spinning');
+			return timeout(exec(manager, [ 'stop' ])
 				.then(function() { return exec(manager, [ 'clean-runtime' ]); })
-				.then(function() { return exec(manager, [ 'start' ]); })
+				.then(function() { return exec(manager, [ 'start' ]); }), 90)
 				.then(function() {
-					ui.hideModal();
-					ui.addNotification(null, E('p', _('Runtime reinstall requested.')), 'info');
+					showMessage(_('Runtime reinstall requested.'), 'info');
 				}).catch(function(err) {
-					ui.hideModal();
-					ui.addNotification(null, E('p', err.message), 'error');
+					showMessage(err.message, 'error');
+				}).then(function() {
+					button.disabled = false;
+					button.classList.remove('spinning');
+					return refreshStatus();
 				});
 		}
 
 		renderStatus(status);
-		poll.add(function() {
-			return Promise.all([
-				L.resolveDefault(fs.exec(manager, [ 'status' ]), { stdout: 'unknown' }),
-				L.resolveDefault(fs.exec(manager, [ 'devices' ]), { stdout: '' })
-			]).then(function(res) {
-				devices = parseDevices(res[1].stdout);
-				renderStatus(parseStatus(res[0].stdout));
-			});
-		}, 5);
+		poll.add(refreshStatus, 2);
 
 		return E([], [
 			E('h2', {}, _('NetEase UU')),
 			E('div', { 'class': 'cbi-map-descr' },
 				_('The runtime and monitor script are downloaded from NetEase official distribution servers.')),
+			messageNode,
 			statusNode,
 			E('div', { 'class': 'cbi-section' }, [
 				E('button', {
 					'class': 'btn cbi-button cbi-button-action',
-					'click': function() { return action(manager, [ 'start' ], _('Service start requested.')); }
+					'click': function(ev) { return action(ev.currentTarget, manager, [ 'start' ], _('Service start requested.')); }
 				}, _('Start')),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button cbi-button-action',
-					'click': function() { return action(manager, [ 'restart' ], _('Service restarted.')); }
+					'click': function(ev) { return action(ev.currentTarget, manager, [ 'restart' ], _('Service restarted.')); }
 				}, _('Restart')),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button cbi-button-negative',
-					'click': function() { return action(manager, [ 'stop' ], _('Service stopped.')); }
+					'click': function(ev) { return action(ev.currentTarget, manager, [ 'stop' ], _('Service stopped.')); }
 				}, _('Stop')),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button cbi-button-apply',
-					'click': function() { return action(manager, [ 'update-monitor' ], _('Official monitor script updated; restart the service to apply it.')); }
+					'click': function(ev) { return action(ev.currentTarget, manager, [ 'update-monitor' ], _('Official monitor script updated; restart the service to apply it.')); }
 				}, _('Update monitor')),
 				' ',
 				E('button', {
@@ -160,9 +190,9 @@ return view.extend({
 							E('p', {}, _('This stops UU, removes its downloaded runtime cache, and starts the service again. It does not change LuCI settings.')),
 							E('div', { 'class': 'right' }, [
 								E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Cancel')), ' ',
-								E('button', { 'class': 'btn cbi-button-negative', 'click': function() {
+								E('button', { 'class': 'btn cbi-button-negative', 'click': function(ev) {
 									ui.hideModal();
-									return reinstall();
+									return reinstall(ev.currentTarget);
 								} }, _('Reinstall'))
 							])
 						]);
