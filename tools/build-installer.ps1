@@ -48,9 +48,16 @@ for arg in "$@"; do case "$arg" in
 esac; done
 install_payload() {
   dst="$1"; mode="$2"; src="$PAYLOAD_DIR/$(printf '%s' "$dst" | sed 's#^/##; s#/#_#g')"
+  [ -s "$src" ] || die "payload is empty: $dst"
   mkdir -p "$(dirname "$dst")" || die "cannot create $(dirname "$dst")"
   cp "$src" "$dst" || die "cannot install $dst"
   chmod "$mode" "$dst" || die "cannot chmod $dst"
+}
+decode_payload() {
+  if command -v base64 >/dev/null 2>&1; then base64 -d
+  elif command -v openssl >/dev/null 2>&1; then openssl base64 -d -A
+  elif command -v busybox >/dev/null 2>&1 && busybox base64 --help >/dev/null 2>&1; then busybox base64 -d
+  else die "base64 decoder is required (install coreutils-base64 or openssl)"; fi
 }
 stop_previous_manager() {
 	if [ -x /etc/init.d/uu-official ]; then /etc/init.d/uu-official disable >/dev/null 2>&1 || true; /etc/init.d/uu-official stop >/dev/null 2>&1 || true; fi
@@ -63,6 +70,9 @@ install_deps() {
   command -v opkg >/dev/null 2>&1 || die "opkg is required"
   missing=""
   for pkg in kmod-tun curl ca-bundle; do opkg status "$pkg" 2>/dev/null | grep -q 'Status: install' || missing="$missing $pkg"; done
+  if ! command -v base64 >/dev/null 2>&1 && ! command -v openssl >/dev/null 2>&1 && ! (command -v busybox >/dev/null 2>&1 && busybox base64 --help >/dev/null 2>&1); then
+    opkg status coreutils-base64 2>/dev/null | grep -q 'Status: install' || missing="$missing coreutils-base64"
+  fi
   [ -z "$missing" ] && return 0
   opkg update >/dev/null 2>&1 || true
   opkg install $missing || die "cannot install dependencies:$missing"
@@ -91,19 +101,20 @@ foreach ($item in $files) {
     if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw "Missing $($item.Src)" }
     $key = ($item.Dst.TrimStart('/') -replace '/', '_')
     $encoded = [Convert]::ToBase64String([IO.File]::ReadAllBytes($sourcePath))
-    $body += "mkdir -p `"`$PAYLOAD_DIR`"`nbase64 -d > `"`$PAYLOAD_DIR/$key`" <<'UU_EOF_$key'`n$encoded`nUU_EOF_$key`ninstall_payload '$($item.Dst)' '$($item.Mode)'`n"
+    $body += "mkdir -p `"`$PAYLOAD_DIR`"`ndecode_payload > `"`$PAYLOAD_DIR/$key`" <<'UU_EOF_$key'`n$encoded`nUU_EOF_$key`ninstall_payload '$($item.Dst)' '$($item.Mode)'`n"
 }
 
 $footer = @'
 uci -q set uu-official.main.enabled='1' || die "cannot write UCI config"
 uci -q set uu-official.main.model='auto' || die "cannot write UCI config"
 uci -q commit uu-official || die "cannot commit UCI config"
-cat > /usr/sbin/uu/S99uuplugin <<'UU_BOOT_EOF'
+mkdir -p /usr/sbin/uu || die "cannot create /usr/sbin/uu"
+cat > /usr/sbin/uu/S99uuplugin <<'UU_BOOT_EOF' || die "cannot write boot hook"
 #!/bin/sh /etc/rc.common
 START=99
 start() { /bin/sh /usr/sbin/uu/uuplugin_monitor.sh >/dev/null 2>&1 & }
 UU_BOOT_EOF
-chmod 0755 /usr/sbin/uu/S99uuplugin
+chmod 0755 /usr/sbin/uu/S99uuplugin || die "cannot chmod boot hook"
 ln -sf /usr/sbin/uu/S99uuplugin /etc/rc.d/S99uuplugin
 /etc/init.d/uu-openclash-sync enable || die "cannot enable OpenClash sync"
 /etc/init.d/uu-openclash-sync start || die "cannot start OpenClash sync"
