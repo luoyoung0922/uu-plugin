@@ -28,7 +28,7 @@ lock() {
 }
 
 fetch_stdout() {
-	local url="$1"
+	url="$1"
 	if command -v curl >/dev/null 2>&1; then
 		curl -fL --connect-timeout 15 --max-time 60 -sS -k -H 'Accept:text/plain' "$url"
 	elif command -v uclient-fetch >/dev/null 2>&1; then
@@ -41,7 +41,8 @@ fetch_stdout() {
 }
 
 fetch_file() {
-	local url="$1" output="$2"
+	url="$1"
+	output="$2"
 	if command -v curl >/dev/null 2>&1; then
 		curl -fL --connect-timeout 15 --max-time 180 -sS -k "$url" -o "$output"
 	elif command -v uclient-fetch >/dev/null 2>&1; then
@@ -62,7 +63,10 @@ valid_md5() {
 }
 
 resolve_download() {
-	local api="$1" response url sum
+	api="$1"
+	response=''
+	url=''
+	sum=''
 	response="$(fetch_stdout "$api" | tr -d '\r')" || return 1
 	url="${response%%,*}"
 	response="${response#*,}"
@@ -76,7 +80,13 @@ resolve_download() {
 }
 
 download_verified() {
-	local api="$1" output="$2" info url expected actual tmp
+	api="$1"
+	output="$2"
+	info=''
+	url=''
+	expected=''
+	actual=''
+	tmp=''
 	info="$(resolve_download "$api")" || die "official API returned an invalid download response"
 	url="$(printf '%s\n' "$info" | sed -n '1p')"
 	expected="$(printf '%s\n' "$info" | sed -n '2p')"
@@ -109,7 +119,7 @@ detect_model() {
 }
 
 normalize_model() {
-	local requested="${1:-auto}"
+	requested="${1:-auto}"
 	case "$requested" in
 		auto|'') detect_model ;;
 		x86_64|aarch64|arm|mipsel|mipseb) printf '%s\n' "$requested" ;;
@@ -123,7 +133,7 @@ pid_cmdline() {
 }
 
 runtime_pid() {
-	local pid
+	pid=''
 	[ -s "$PID_FILE" ] || return 1
 	pid="$(cat "$PID_FILE" 2>/dev/null)"
 	case "$pid" in *[!0-9]*|'') return 1 ;; esac
@@ -132,7 +142,9 @@ runtime_pid() {
 }
 
 other_monitor_running() {
-	local self="$$" pid cmd
+	self="$$"
+	pid=''
+	cmd=''
 	for proc in /proc/[0-9]*; do
 		pid="${proc##*/}"
 		[ "$pid" = "$self" ] && continue
@@ -145,7 +157,8 @@ other_monitor_running() {
 }
 
 write_config() {
-	local model="$1" tmp="${MONITOR_CONFIG}.tmp.$$"
+	model="$1"
+	tmp="${MONITOR_CONFIG}.tmp.$$"
 	{
 		echo 'router=openwrt'
 		printf 'model=%s\n' "$model"
@@ -155,7 +168,8 @@ write_config() {
 }
 
 write_boot_hook() {
-	local hook="$INSTALL_DIR/S99uuplugin" tmp="${INSTALL_DIR}/S99uuplugin.tmp.$$"
+	hook="$INSTALL_DIR/S99uuplugin"
+	tmp="${INSTALL_DIR}/S99uuplugin.tmp.$$"
 	{
 		echo '#!/bin/sh /etc/rc.common'
 		echo 'START=99'
@@ -174,7 +188,8 @@ update_monitor() {
 }
 
 prepare() {
-	local model other
+	model=''
+	other=''
 	lock
 	model="$(normalize_model "${1:-auto}")" || die "unsupported architecture: $(uname -m 2>/dev/null)"
 	other="$(other_monitor_running 2>/dev/null || true)"
@@ -187,7 +202,8 @@ prepare() {
 }
 
 stop_runtime() {
-	local pid i
+	pid=''
+	i=''
 	pid="$(runtime_pid 2>/dev/null || true)"
 	[ -n "$pid" ] || {
 		rm -f "$PID_FILE"
@@ -216,7 +232,10 @@ clean_runtime() {
 }
 
 status_text() {
-	local pid model='unknown' monitor='missing' enabled='0'
+	pid=''
+	model='unknown'
+	monitor='missing'
+	enabled='0'
 	[ -r "$MONITOR_CONFIG" ] && model="$(sed -n 's/^model=//p' "$MONITOR_CONFIG" | head -n1)"
 	[ -x "$MONITOR" ] && monitor='installed'
 	[ -L /etc/rc.d/S99uuplugin ] && enabled='1'
@@ -229,7 +248,20 @@ status_text() {
 }
 
 device_status() {
-	local status_file="${RUNTIME_DIR}/activate_status" ip line latency name mac uuid router_mac reason='' nft_ips nft_ip packets kind hints
+	status_file="${RUNTIME_DIR}/activate_status"
+	ip=''
+	line=''
+	latency=''
+	name=''
+	mac=''
+	uuid=''
+	router_mac=''
+	reason=''
+	nft_ips=''
+	nft_ip=''
+	packets=''
+	kind=''
+	hints=''
 	nft_ips="$(nft list ruleset 2>/dev/null | sed -n 's/.*table ip XU_ACC_DEVICE_\([0-9.]*\)_mangle.*/\1/p' | sort -u)"
 	if [ -n "$nft_ips" ]; then
 		printf 'source=nftables/XU_ACC_DEVICE_*\n---\n'
@@ -242,11 +274,11 @@ device_status() {
 					tolower($2) ~ tolower(mac) { section=$1; sub(/\.mac$/, "", section) }
 					section != "" && $1 == section ".name" { gsub(/^.|.$/, "", $2); print $2; exit }')"
 			fi
-			hints="$(printf '%s\n' "$name" | tr 'A-Z' 'a-z') $(nft list ruleset 2>/dev/null | grep "$nft_ip" | tr 'A-Z' 'a-z')"
+			hints="$(printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]') $(nft list ruleset 2>/dev/null | grep "$nft_ip" | tr '[:upper:]' '[:lower:]')"
 			case "$hints" in
 				*playstation*|*ps4*|*ps5*|*'sport 9308'*|*'dport 9308'*|*'sport 9295'*|*'dport 9295'*) kind='playstation' ;;
 				*nintendo*|*switch*) kind='switch' ;;
-				*xbox*|*xboxone*|*xbox-series*) kind='xbox' ;;
+				*xbox*) kind='xbox' ;;
 				*iphone*|*ipad*|*android*|*phone*) kind='mobile' ;;
 				*windows*|*desktop*|*laptop*|*macbook*) kind='computer' ;;
 				*) kind='console' ;;
@@ -256,7 +288,7 @@ device_status() {
 				latency="$(sed -n 's/.*time[=<]\([0-9.]*\).*/\1/p' /tmp/uu-ping.$$ | head -n1)"; [ -n "$latency" ] || latency='reachable'
 			fi
 			rm -f /tmp/uu-ping.$$
-			packets="$(nft list table ip XU_ACC_DEVICE_${nft_ip}_mangle 2>/dev/null | sed -n 's/.*counter packets \([0-9][0-9]*\).*/\1/p' | awk '{s+=$1} END{print s+0}')"
+			packets="$(nft list table ip "XU_ACC_DEVICE_${nft_ip}_mangle" 2>/dev/null | sed -n 's/.*counter packets \([0-9][0-9]*\).*/\1/p' | awk '{s+=$1} END{print s+0}')"
 			printf 'device=%s|name=%s|mac=%s|uuid=|latency=%s|packets=%s|kind=%s\n' "$nft_ip" "$name" "${mac:-unknown}" "$latency" "$packets" "$kind"
 		done
 		return 0
@@ -296,7 +328,8 @@ log_tail() {
 }
 
 official_start() {
-	local requested model
+	requested=''
+	model=''
 	requested="${1:-$(uci -q get uu-official.main.model 2>/dev/null || echo auto)}"
 	model="$(normalize_model "$requested")" || die "unsupported architecture: $(uname -m 2>/dev/null)"
 	lock
@@ -310,7 +343,7 @@ official_start() {
 }
 
 official_stop() {
-	local pid
+	pid=''
 	stop_runtime
 	for pid in $(ps w 2>/dev/null | awk '/[u]uplugin_monitor\.sh/ {print $1}'); do kill "$pid" 2>/dev/null || true; done
 	log "official monitor stopped"
