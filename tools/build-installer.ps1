@@ -27,6 +27,7 @@ $files = @(
 $header = @'
 #!/bin/sh
 # One-click installer for luci-app-uu-official.
+# Installer revision: 1.1.1 (minimal-OpenWrt decoder fallback)
 # shellcheck disable=SC2015,SC2086,SC2317
 set -u
 NAME="uu-official-installer"
