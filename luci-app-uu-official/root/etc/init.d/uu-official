@@ -10,7 +10,8 @@ MONITOR="/usr/sbin/uu/uuplugin_monitor.sh"
 
 start_service() {
 	config_load uu-official
-	local enabled model
+	enabled=0
+	model=auto
 	config_get_bool enabled main enabled 0
 	config_get model main model auto
 
